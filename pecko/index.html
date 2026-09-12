@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Peçko Pastanesi · Sadakat programına katılın</title>
+<style>
+  :root { --bg:#fbf6ee; --card:#fff; --ink:#3b2622; --muted:#7a6660; --line:#eadfd2; --brand:#c8385e; --cocoa:#4a2c2a; --wa:#25d366; }
+  * { box-sizing:border-box }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif }
+  header { background:var(--card); border-bottom:1px solid var(--line); padding:.8rem 1rem; font-weight:700; color:var(--cocoa); font-size:1.1rem }
+  main { max-width:720px; margin:0 auto; padding-block:1.25rem 2rem; padding-inline:1rem }
+  h1 { font-size:1.6rem; line-height:1.25; margin:0 0 .35rem; color:var(--cocoa) }
+  .subtitle { color:var(--muted); margin:0 0 1rem }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:1rem 1.1rem; margin:0 0 1rem }
+  .center { text-align:center }
+  .btn { display:inline-block; border:0; border-radius:999px; padding:.9rem 1.6rem; font-size:1.15rem; font-weight:600; text-decoration:none; color:#fff; background:var(--wa); width:100%; max-width:360px }
+  .notice { background:#fff8e6; border:1px solid #f2e2b3; border-radius:14px; padding:.8rem 1rem; margin:0 0 1rem; font-size:.95rem }
+  .muted { color:var(--muted) } .small { font-size:.85rem }
+  a { color:#a52a4b }
+  code { font-family:ui-monospace,Menlo,monospace; background:#f3ebe0; padding:.1em .35em; border-radius:6px }
+  details summary { cursor:pointer; font-weight:600; color:var(--cocoa) }
+  footer { text-align:center; color:var(--muted); font-size:.85rem; padding:1rem }
+  [hidden] { display:none !important }
+</style>
+</head>
+<body>
+<header>🎂 Peçko Pastanesi</header>
+<main>
+  <h1>Sadakat programına katılın</h1>
+  <p class="subtitle">WhatsApp'ta hazır gelen mesajı gönderin; üyelik kodunuz anında size iletilsin.</p>
+
+  <div class="card center" id="join">
+    <a class="btn" id="wa-link" href="#" rel="noopener">WhatsApp ile devam et</a>
+    <p class="muted small" id="wa-hint">WhatsApp birkaç saniye içinde otomatik açılacak…</p>
+  </div>
+
+  <div class="notice">
+    <strong>Kısa bilgilendirme:</strong> Devam ettiğinizde WhatsApp numaranız yalnızca üyeliğinizi oluşturmak için işlenir.
+    Üyeliğiniz, size gönderilecek <strong>KVKK onay sayfasını</strong> tamamladığınızda aktif olur; onay vermezseniz
+    numaranız <span id="pending-hours">72</span> saat içinde silinir. Ayrıntılar: <a id="kvkk-link" href="#">Aydınlatma Metni</a>.
+  </div>
+
+  <details class="card" id="fallback">
+    <summary>WhatsApp açılmadı mı?</summary>
+    <p>WhatsApp'ı açıp <strong id="phone-display"></strong> numarasına şu mesajı gönderebilirsiniz:</p>
+    <p><code id="prefill-display"></code></p>
+    <p>WhatsApp kullanmıyorsanız kasadaki personelimize danışın.</p>
+  </details>
+
+  <div class="card" id="no-token" hidden>
+    <p>Bu sayfa kasadaki QR kod veya NFC kart üzerinden açılmalıdır. Lütfen QR kodu yeniden okutun ya da personelimize danışın.</p>
+  </div>
+
+  <p class="muted small center" id="point"></p>
+</main>
+<footer>Peçko Pastanesi sadakat programı</footer>
+
+<script>
+  // ─── Yapılandırma: bu üç değeri işletmenize göre düzenleyin ───────────────
+  var BUSINESS_NAME = 'Peçko Pastanesi';
+  var BUSINESS_PHONE = '905000000000';               // ülke koduyla, yalnızca rakam
+  var BACKEND_URL = 'https://sadakat.pecko.com.tr';   // sadakat sunucusu (KVKK metni buradan okunur)
+  var PENDING_HOURS = 72;
+
+  var params = new URLSearchParams(location.search);
+  var token = (params.get('k') || '').toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 32);
+  document.getElementById('kvkk-link').href = BACKEND_URL + '/kvkk';
+  document.getElementById('pending-hours').textContent = PENDING_HOURS;
+
+  if (!token) {
+    document.getElementById('join').hidden = true;
+    document.getElementById('fallback').hidden = true;
+    document.getElementById('no-token').hidden = false;
+  } else {
+    var prefill = 'Merhaba ' + BUSINESS_NAME + '! Sadakat programına katılmak istiyorum. #' + token;
+    var link = 'https://wa.me/' + BUSINESS_PHONE + '?text=' + encodeURIComponent(prefill);
+    var a = document.getElementById('wa-link');
+    a.href = link;
+    document.getElementById('phone-display').textContent = '+' + BUSINESS_PHONE;
+    document.getElementById('prefill-display').textContent = '#' + token;
+    document.getElementById('point').textContent = 'Nokta: ' + token;
+    var mobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    if (params.get('auto') === '0' || !mobile) {
+      document.getElementById('wa-hint').textContent = "Düğmeye dokunarak WhatsApp'ı açın.";
+    } else {
+      var t = setTimeout(function () { location.href = link; }, 1500);
+      a.addEventListener('click', function () { clearTimeout(t); });
+    }
+  }
+</script>
+</body>
+</html>
