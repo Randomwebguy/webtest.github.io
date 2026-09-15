@@ -10,52 +10,153 @@
     ['personel', 'Personel'], ['denetim', 'Denetim'],
   ];
 
-  /* --- örnek veri: liste ve raporlar boş görünmesin, gerçek üye üstte kalsın --- */
+  /* --- örnek veri ------------------------------------------------------
+     Panelin her bölümü gerçekte karşılaşacağı durumlarla dolu görünsün diye
+     tohumlanır: farklı üyelik durumları, onaylanmış/reddedilmiş/bekleyen
+     paylaşımlar, tamamlanmış ve yarım kalmış kampanyalar, gecikmiş İYS
+     kaydı. Akıştaki gerçek üye bunlara karışmaz, listede üstte ve etiketli
+     durur. MOCK sürümü artınca veri bir kez yenilenir. */
+  var MOCK = 3;
+
+  function gun(n) {   // n gün önce, gg.aa.yyyy
+    return new Date(Date.now() - n * 86400000).toLocaleDateString('tr-TR');
+  }
+  function saat(n, s, d) { return gun(n) + ' ' + ('0' + s).slice(-2) + ':' + ('0' + (d || 0)).slice(-2); }
+
   function seed(S) {
-    var d = false;
-    if (!S.rewards) {
-      S.rewards = [
-        { id: 1, ad: '1 adet hediye kahve', bedel: 10, aktif: true },
-        { id: 2, ad: 'Kurabiye (100 gr)', bedel: 5, aktif: true },
-      ];
-      d = true;
-    }
-    if (!S.staff) { S.staff = [{ id: 1, ad: 'Zeynep', aktif: true }, { id: 2, ad: 'Mert', aktif: true }]; d = true; }
-    if (!S.cards) {
-      S.cards = [
-        { token: 'KASA1', etiket: 'Kasa 1', tur: 'kasa', aktif: true, qr: 0, nfc: 0, nfcDurum: 'kilitli' },
-        { token: 'MASA3', etiket: 'Masa 3', tur: 'masa', aktif: true, qr: 0, nfc: 0, nfcDurum: 'yazılmadı' },
-      ];
-      d = true;
-    }
-    if (!S.claims) S.claims = [];
-    if (!S.campaigns) S.campaigns = [];
-    if (!S.audit) S.audit = [];
-    if (!S.iys) S.iys = [];
-    if (!S.ornek) {
-      // Kontrol karakteri gerçek algoritmayla üretilir; kasada aranabilir olsunlar.
-      var adlar = [['Ayşe Yıldız', 7, 'active', true], ['Mehmet Kaya', 12, 'active', false],
-        ['Elif Demir', 3, 'active', true], ['Burak Şen', 0, 'pending', false], ['Zeynep Ak', 21, 'active', true]];
-      S.ornek = adlar.map(function (a, i) {
-        return { kod: P.newCode(), ad: a[0], damga: a[1], durum: a[2], pazarlama: a[3],
-          tarih: yeniTarih(-(i * 9 + 3)), ornek: true };
-      });
-      d = true;
-    }
-    if (d) P.save(S);
+    if (S.mockSurum === MOCK) return S;
+
+    S.rewards = [
+      { id: 1, ad: 'Kurabiye (100 gr)', bedel: 5, aktif: true },
+      { id: 2, ad: '1 adet hediye kahve', bedel: 10, aktif: true },
+      { id: 3, ad: 'Dilim yaş pasta', bedel: 16, aktif: true },
+      { id: 4, ad: 'Yaz limonatası', bedel: 8, aktif: false },
+    ];
+
+    S.staff = [
+      { id: 1, ad: 'Zeynep', aktif: true },
+      { id: 2, ad: 'Mert', aktif: true },
+      { id: 3, ad: 'Selin', aktif: true },
+      { id: 4, ad: 'Onur', aktif: false },
+    ];
+
+    S.cards = [
+      { token: 'KASA1', etiket: 'Kasa 1', tur: 'kasa', aktif: true, qr: 214, nfc: 96, nfcDurum: 'kilitli' },
+      { token: 'MASA3', etiket: 'Masa 3', tur: 'masa', aktif: true, qr: 63, nfc: 41, nfcDurum: 'yazıldı' },
+      { token: 'PAKET', etiket: 'Paket servis çıkışı', tur: 'kasa', aktif: false, qr: 12, nfc: 0, nfcDurum: 'yazılmadı' },
+    ];
+
+    // Üyelik durumlarının tamamı temsil edilir: aktif, onay bekleyen, silinmiş;
+    // izinli/izinsiz; Instagram hesabı olan ve olmayan.
+    var kisiler = [
+      ['Ayşe Yıldız',   34, 'active',  true,  2,  'ayseyildiz',  'KASA1'],
+      ['Mehmet Kaya',   12, 'active',  false, 5,  null,          'KASA1'],
+      ['Elif Demir',     3, 'active',  true,  1,  'elifdemir',   'MASA3'],
+      ['Burak Şen',      0, 'pending', false, 0,  null,          'KASA1'],
+      ['Zeynep Ak',     21, 'active',  true,  3,  'zeynep.ak',   'KASA1'],
+      ['Caner Öz',       8, 'active',  false, 0,  null,          'MASA3'],
+      ['Derya Tunç',    17, 'active',  true,  1,  'deryatunc',   'KASA1'],
+      ['Emre Balcı',     1, 'active',  false, 0,  null,          'KASA1'],
+      ['Fatma Arslan',  26, 'active',  true,  4,  null,          'MASA3'],
+      ['Gökhan Yurt',    0, 'pending', false, 0,  null,          'MASA3'],
+      ['Hale Kurt',      6, 'active',  true,  0,  'halekurt',    'KASA1'],
+      ['İlker Doğan',   11, 'active',  false, 1,  null,          'KASA1'],
+      ['Jale Erdem',     0, 'deleted', false, 2,  null,          'KASA1'],
+      ['Kemal Aydın',    4, 'active',  true,  0,  null,          'PAKET'],
+    ];
+    S.ornek = kisiler.map(function (k, i) {
+      return { kod: P.newCode(), ad: k[0], damga: k[1], durum: k[2], pazarlama: k[3],
+        odul: k[4], ig: k[5], nokta: k[6], tarih: gun(3 + i * 2 + (i % 3)), ornek: true };
+    });
+
+    // Rapor ve özet sayaçları bu olay günlüğünden hesaplanır; uydurma satır yok.
+    S.hareket = [];
+    var turler = [['damga', 1, 62], ['bonus', 1, 11], ['odul', -1, 14]];
+    var tohum = 7;
+    function rast(n) { tohum = (tohum * 1103515245 + 12345) % 2147483648; return tohum % n; }
+    turler.forEach(function (t) {
+      for (var i = 0; i < t[2]; i++) {
+        var g = rast(30);
+        var kisi = S.ornek[rast(S.ornek.length)];
+        S.hareket.push({ tur: t[0], gun: g, kod: kisi.kod, nokta: kisi.nokta });
+      }
+    });
+
+    // Instagram: otomatik eşleşen, personel onaylı, reddedilen ve bekleyenler.
+    S.claims = [
+      { id: 9001, kullanici: '@deryatunc',   tur: 'hikaye',  durum: 'bekliyor',    damga: 1, tarih: saat(0, 11, 20), kaynak: 'gizli hesap · ekran görüntüsü' },
+      { id: 9002, kullanici: '(eşleşmedi)',  tur: 'gönderi', durum: 'bekliyor',    damga: 2, tarih: saat(0, 9, 45),  kaynak: 'ekran görüntüsü' },
+      { id: 9003, kullanici: '@ayseyildiz',  tur: 'hikaye',  durum: 'onaylandı',   damga: 1, tarih: saat(1, 16, 5),  kaynak: 'otomatik eşleşme' },
+      { id: 9004, kullanici: '@zeynep.ak',   tur: 'gönderi', durum: 'onaylandı',   damga: 2, tarih: saat(2, 13, 30), kaynak: 'otomatik eşleşme' },
+      { id: 9005, kullanici: '@halekurt',    tur: 'hikaye',  durum: 'reddedildi',  damga: 0, tarih: saat(4, 18, 12), kaynak: 'etiket görünmüyor' },
+      { id: 9006, kullanici: '@elifdemir',   tur: 'hikaye',  durum: 'onaylandı',   damga: 1, tarih: saat(6, 12, 0),  kaynak: 'otomatik eşleşme' },
+    ];
+
+    // Kampanyalar: tamamlanmış, hatalı alıcısı olan ve henüz gönderilmemiş taslak.
+    S.campaigns = [
+      { id: 8001, ad: 'Ekim kahve kampanyası', sablon: 'ekim_kampanya', durum: 'tamam',
+        alici: 41, gonderildi: 38, atlandi: 2, hata: 1, olusturma: gun(9) },
+      { id: 8002, ad: 'Hafta sonu brunch', sablon: 'brunch_duyuru', durum: 'tamam',
+        alici: 36, gonderildi: 36, atlandi: 0, hata: 0, olusturma: gun(23) },
+      { id: 8003, ad: 'Yılbaşı ön sipariş', sablon: 'yilbasi_onsiparis', durum: 'taslak',
+        alici: 0, gonderildi: 0, atlandi: 0, hata: 0, olusturma: gun(0) },
+    ];
+
+    // İYS: bekleyen, aktarılmış, ret ve mevzuat süresini aşmış bir kayıt.
+    S.iys = [
+      { alici: '+905321110042', tur: 'ONAY', kaynak: 'onay sayfası', tarih: gun(1),  aktarim: false },
+      { alici: '+905321110018', tur: 'ONAY', kaynak: 'onay sayfası', tarih: gun(2),  aktarim: false },
+      { alici: '+905321110077', tur: 'RET',  kaynak: 'WhatsApp DUR', tarih: gun(6),  aktarim: false, gecikmis: true },
+      { alici: '+905321110033', tur: 'RET',  kaynak: 'üyelik silme', tarih: gun(11), aktarim: true },
+      { alici: '+905321110091', tur: 'ONAY', kaynak: 'onay sayfası', tarih: gun(12), aktarim: true },
+      { alici: '+905321110005', tur: 'ONAY', kaynak: 'WhatsApp KAMPANYA', tarih: gun(15), aktarim: true },
+    ];
+
+    S.audit = [
+      { t: saat(0, 10, 12), kim: 'Zeynep (personel)', islem: 'damga.eklendi',       detay: '+1 · Kasa 1' },
+      { t: saat(0, 9, 48),  kim: 'Mert (personel)',   islem: 'odul.verildi',        detay: '1 adet hediye kahve' },
+      { t: saat(1, 17, 3),  kim: 'yönetici',          islem: 'instagram.onay',      detay: '@ayseyildiz · +1' },
+      { t: saat(1, 14, 22), kim: 'yönetici',          islem: 'customer.phone_revealed', detay: 'gerekçe: ödül doğrulaması' },
+      { t: saat(2, 19, 40), kim: 'yönetici',          islem: 'kampanya.gonderildi', detay: 'Ekim kahve kampanyası · 38 mesaj' },
+      { t: saat(3, 11, 15), kim: 'Selin (personel)',  islem: 'damga.duzeltme',      detay: '-1 · gerekçe: çift okutma' },
+      { t: saat(4, 18, 30), kim: 'yönetici',          islem: 'instagram.red',       detay: '@halekurt' },
+      { t: saat(5, 9, 5),   kim: 'yönetici',          islem: 'iys.aktarim',         detay: '12 kayıt' },
+      { t: saat(7, 16, 50), kim: 'yönetici',          islem: 'customer.deleted',    detay: 'KVKK silme talebi' },
+      { t: saat(9, 12, 0),  kim: 'yönetici',          islem: 'odul.eklendi',        detay: 'Dilim yaş pasta · 16 damga' },
+      { t: saat(12, 8, 40), kim: 'yönetici',          islem: 'personel.pasif',      detay: 'Onur' },
+      { t: saat(12, 8, 35), kim: 'yönetici',          islem: 'oturum.kapatildi',    detay: '3 oturum' },
+    ];
+
+    // Giden mesaj sağlığı: başarısız gönderimlerin görünür olması panelin asıl
+    // işlevlerinden biri — erişim anahtarı düşerse ilk uyarı buradan gelir.
+    S.giden = {
+      gonderildi: 312, basarisiz: 2, saat: 24,
+      hatalar: [
+        { t: saat(0, 8, 12), tur: 'damga bildirimi',
+          hata: '(#131047) 24 saatlik pencere kapalı; şablon tanımlı değil' },
+        { t: saat(0, 7, 40), tur: 'kampanya',
+          hata: '(#130429) Dakikalık gönderim sınırı aşıldı, alıcı kuyrukta kaldı' },
+      ],
+    };
+    S.isler = [
+      { ad: 'Saklama süresi temizliği', son: saat(0, 4, 0), hata: null },
+      { ad: 'Instagram etiket sorgusu', son: saat(0, 9, 55), hata: null },
+      { ad: 'Kampanya gönderimi', son: saat(0, 9, 40), hata: null },
+    ];
+
+    S.mockSurum = MOCK;
+    P.save(S);
     return S;
   }
-  function yeniTarih(gunFarki) {
-    var t = new Date(Date.now() + gunFarki * 86400000);
-    return t.toLocaleDateString('tr-TR');
-  }
+  function yeniTarih(n) { return gun(-n); }
 
   /* --- üyeler: akıştaki gerçek üye + örnekler --- */
   function uyeler(S) {
     var out = [];
     if (S.code) {
       out.push({ kod: S.code, ad: 'Test Müşteri', damga: S.stamps, durum: S.status,
-        pazarlama: S.marketing, tarih: (S.createdAt || '').split(' ')[0] || P.today(), gercek: true });
+        pazarlama: S.marketing, odul: S.redeemed || 0, ig: S.ig, nokta: S.token,
+        tarih: (S.createdAt || '').split(' ')[0] || P.today(), gercek: true });
     }
     return out.concat(S.ornek || []);
   }
@@ -125,25 +226,50 @@
           kutu('Aktif üye', aktifUye) + kutu('Bugün damga', bugunDamga(S)) +
           kutu('Bekleyen paylaşım', bekleyen) + kutu('İYS bekleyen', iysBekleyen) +
         '</dl>' +
-        '<div class="form"><h3>Sistem durumu</h3>' +
-          '<p style="font-size:.84rem;margin:0 0 .5rem">Son 24 saatte <b>' + (S.log || []).filter(function (l) { return l.d === 'in'; }).length +
-          '</b> mesaj gönderildi, <b>0</b> tanesi başarısız.</p>' +
-          '<p style="font-size:.8rem;color:var(--muted);margin:0">Saklama temizliği · Instagram sorgusu · Kampanya gönderimi: hepsi çalışıyor.</p>' +
-        '</div>' +
+        sistemDurumu(S) +
         '<h2 style="font-size:1rem;margin:1rem 0 .5rem;color:var(--cocoa)">Son üyeler</h2>' +
         (sonUyeler ? '<div class="list">' + sonUyeler + '</div>' : '<p class="bosluk">Henüz üye yok. QR akışını tamamlayın.</p>') +
         '<a class="btn btn-sec" href="../kasa/">Kasa ekranını aç</a>';
     }
   };
   function kutu(ad, deger) { return '<div class="tile"><dt>' + ad + '</dt><dd>' + deger + '</dd></div>'; }
+
+  function sistemDurumu(S) {
+    var g = S.giden || { gonderildi: 0, basarisiz: 0, saat: 24, hatalar: [] };
+    var kendi = (S.log || []).filter(function (l) { return l.d === 'in'; }).length;
+    var isler = (S.isler || []).map(function (i) {
+      return '<li><span>' + i.ad + '</span><span class="right">' +
+        (i.hata ? '<span class="tag red">hata</span>' : '<span class="tag ok">çalışıyor</span>') +
+        '<br><span style="font-size:.72rem;color:var(--muted)">' + i.son + '</span></span></li>';
+    }).join('');
+    return '<div class="form"><h3>Sistem durumu</h3>' +
+      '<p style="font-size:.86rem;margin:0 0 .6rem">Son ' + g.saat + ' saatte <b>' +
+        (g.gonderildi + kendi) + '</b> mesaj gönderildi' +
+        (g.basarisiz ? ', <b style="color:var(--marka-kirmizi)">' + g.basarisiz + '</b> tanesi başarısız.' : ', hepsi başarılı.') + '</p>' +
+      (g.hatalar && g.hatalar.length
+        ? '<div class="tw" style="margin-bottom:.6rem"><table class="t"><thead><tr><th>Zaman</th><th>Tür</th><th>Hata</th></tr></thead><tbody>' +
+          g.hatalar.map(function (h) {
+            return '<tr><td style="white-space:nowrap">' + h.t + '</td><td>' + h.tur + '</td><td>' + P.esc(h.hata) + '</td></tr>';
+          }).join('') + '</tbody></table></div>'
+        : '') +
+      '<ul class="isler">' + isler + '</ul></div>';
+  }
   function rozet(d) {
     return '<span class="tag ' + ({ active: 'ok', pending: 'bek', deleted: 'sil' }[d] || 'sil') + '">' +
       ({ active: 'aktif', pending: 'onay bekliyor', deleted: 'silindi' }[d] || d) + '</span>';
   }
-  function bugunDamga(S) {
-    var b = P.today();
-    return (S.events || []).filter(function (e) { return e.indexOf('• ' + b) === 0 && e.indexOf('Damga') > -1; }).length;
+  // Sayaçlar mock olay günlüğünden + bu cihazdaki gerçek akıştan gelir.
+  function hareketSay(S, tur, gunAraligi) {
+    var n = (S.hareket || []).filter(function (h) {
+      return h.tur === tur && h.gun < gunAraligi;
+    }).length;
+    if (tur === 'damga') {
+      var b = P.today();
+      n += (S.events || []).filter(function (e) { return e.indexOf('• ' + b) === 0 && e.indexOf('Damga') > -1; }).length;
+    }
+    return n;
   }
+  function bugunDamga(S) { return hareketSay(S, 'damga', 1); }
 
   /* ===================== ÜYELER ===================== */
   SAYFA.uyeler = {
@@ -167,14 +293,14 @@
         var liste = uyeler(S).filter(function (x) {
           if (durum && x.durum !== durum) return false;
           if (!q) return true;
-          var t = (x.kod + ' ' + x.ad).toLocaleLowerCase('tr-TR');
+          var t = (x.kod + ' ' + x.ad + ' ' + (x.ig || '')).toLocaleLowerCase('tr-TR');
           return t.indexOf(q.toLocaleLowerCase('tr-TR')) > -1;
         });
         document.getElementById('liste').innerHTML = liste.length
           ? '<div class="list">' + liste.map(function (x) {
               return '<div class="item"><span><span class="mono">' + x.kod + '</span>' +
                 '<span class="sub">' + P.esc(x.ad) + (x.gercek ? ' · <b>bu cihazdaki üye</b>' : '') +
-                ' · kayıt ' + x.tarih + '</span></span>' +
+                (x.ig ? ' · @' + P.esc(x.ig) : '') + ' · ' + (x.nokta || '—') + ' · ' + x.tarih + '</span></span>' +
                 '<span class="right">' + x.damga + ' damga<br>' + rozet(x.durum) +
                 (x.pazarlama ? ' <span class="tag ok">izinli</span>' : '') + '</span></div>';
             }).join('') + '</div>'
@@ -193,10 +319,11 @@
     }
   };
   ISLER.uyeCsv = function (S) {
-    var satir = [['Üye kodu', 'Durum', 'Ad', 'Damga', 'Kampanya izni', 'Kayıt']];
+    var satir = [['Üye kodu', 'Durum', 'Ad', 'Instagram', 'Damga', 'Kullanılan ödül', 'Kampanya izni', 'Kayıt noktası', 'Kayıt']];
     uyeler(S).forEach(function (x) {
       satir.push([x.kod, { active: 'Aktif', pending: 'Onay bekliyor', deleted: 'Silindi' }[x.durum] || x.durum,
-        x.ad, x.damga, x.pazarlama ? 'Evet' : 'Hayır', x.tarih]);
+        x.ad, x.ig ? '@' + x.ig : '', x.damga, x.odul || 0,
+        x.pazarlama ? 'Evet' : 'Hayır', x.nokta || '', x.tarih]);
     });
     P.audit(S, 'uye.disa_aktarim', satir.length - 1 + ' kayıt'); P.save(S);
     csvIndir('uyeler-' + P.today().replace(/\./g, '-') + '.csv', satir);
@@ -238,6 +365,23 @@
   };
 
   /* ===================== KAMPANYALAR ===================== */
+  function kampanyaSatir(k) {
+    var rozetler = { taslak: ['bek', 'taslak'], gonderiliyor: ['bek', 'gönderiliyor'],
+      tamam: ['ok', 'tamamlandı'], iptal: ['sil', 'iptal'] };
+    var r = rozetler[k.durum] || ['sil', k.durum];
+    var sag = k.durum === 'taslak'
+      ? '<button class="btn btn-primary" style="width:auto;min-height:38px;padding:0 .7rem" data-is="kampanyaBaslat" data-id="' + k.id + '">Gönder</button>'
+      : '<span class="tag ' + r[0] + '">' + r[1] + '</span><br>' +
+        '<span style="font-size:.74rem;color:var(--muted)">' + k.gonderildi + ' gitti · ' +
+        k.atlandi + ' atlandı' + (k.hata ? ' · <b style="color:var(--marka-kirmizi)">' + k.hata + ' hata</b>' : '') + '</span>';
+    return '<div class="item"><span><b>' + P.esc(k.ad) + '</b>' +
+      '<span class="sub"><code>' + k.sablon + '</code> · ' + k.olusturma +
+      (k.alici ? ' · ' + k.alici + ' alıcı' : '') + '</span>' +
+      (k.hata ? '<button class="btn btn-sec" style="width:auto;min-height:34px;padding:0 .6rem;margin-top:.4rem;font-size:.75rem" ' +
+        'data-is="kampanyaYeniden" data-id="' + k.id + '">' + k.hata + ' başarısız alıcıyı yeniden dene</button>' : '') +
+      '</span><span class="right">' + sag + '</span></div>';
+  }
+
   SAYFA.kampanyalar = {
     baslik: 'Kampanyalar',
     ciz: function (S) {
@@ -247,14 +391,7 @@
           '<b>Meta onaylı MARKETING şablonuyla</b> izin verir; serbest metin reddedilir.</div>' +
         '<dl class="tiles">' + kutu('İzinli üye', izinli.length) +
           kutu('Tahmini tutar', (izinli.length * birim).toFixed(2).replace('.', ',') + ' TL') + '</dl>' +
-        (S.campaigns.length ? '<div class="list">' + S.campaigns.map(function (k) {
-          return '<div class="item"><span><b>' + P.esc(k.ad) + '</b>' +
-            '<span class="sub">' + k.sablon + ' · ' + k.olusturma + '</span></span>' +
-            '<span class="right">' + (k.durum === 'taslak'
-              ? '<button class="btn btn-primary" style="width:auto;min-height:38px;padding:0 .7rem" data-is="kampanyaBaslat" data-id="' + k.id + '">Gönder</button>'
-              : '<span class="tag ok">gönderildi</span><br>' + k.gonderildi + ' gitti · ' + k.atlandi + ' atlandı') +
-            '</span></div>';
-        }).join('') + '</div>' : '') +
+        (S.campaigns.length ? '<div class="list">' + S.campaigns.map(kampanyaSatir).join('') + '</div>' : '') +
         '<form class="form" id="yeni"><h3>Yeni kampanya</h3>' +
           '<label>Kampanya adı<input id="ad" required maxlength="60" placeholder="Ekim kahve kampanyası"></label>' +
           '<label>Onaylı şablon adı<input id="sablon" required pattern="[a-z0-9_]+" value="ekim_kampanya"></label>' +
@@ -270,11 +407,21 @@
         if (!ad || !sablon) return;
         var izinli = uyeler(S).filter(function (x) { return x.durum === 'active' && x.pazarlama; }).length;
         S.campaigns.unshift({ id: Date.now(), ad: ad, sablon: sablon, durum: 'taslak',
-          alici: izinli, gonderildi: 0, atlandi: 0, olusturma: P.today() });
+          alici: izinli, gonderildi: 0, atlandi: 0, hata: 0, olusturma: P.today() });
         P.audit(S, 'kampanya.taslak', ad + ' · ' + izinli + ' alıcı'); P.save(S); yenile();
       });
     }
   };
+  ISLER.kampanyaYeniden = function (S, b) {
+    var k = S.campaigns.filter(function (x) { return String(x.id) === b.dataset.id; })[0];
+    if (!k || !k.hata) return;
+    var n = k.hata;
+    k.gonderildi += n; k.hata = 0;   // gönderilmiş alıcıya ikinci mesaj gitmez
+    P.audit(S, 'kampanya.yeniden_deneme', k.ad + ' · ' + n + ' alıcı'); P.save(S);
+    alert(n + ' başarısız alıcı yeniden sıraya alındı ve gönderildi. Gönderilmiş alıcılara dokunulmadı.');
+    yenile();
+  };
+
   ISLER.kampanyaBaslat = function (S, b) {
     var k = S.campaigns.filter(function (x) { return String(x.id) === b.dataset.id; })[0];
     if (!k || k.durum !== 'taslak') return;
@@ -339,34 +486,67 @@
   };
 
   /* ===================== RAPOR ===================== */
+  // Rapor satırları olay günlüğünden hesaplanır: tablo ile sayaçlar tutarlı kalsın.
+  function donemler(S) {
+    var ad = ['Bu hafta', 'Geçen hafta', 'İki hafta önce', 'Üç hafta önce'];
+    var uyeListe = uyeler(S);
+    return ad.map(function (etiket, i) {
+      var bas = i * 7, son = bas + 7;
+      var icinde = function (h) { return h.gun >= bas && h.gun < son; };
+      var hareket = (S.hareket || []).filter(icinde);
+      var yeniUye = uyeListe.filter(function (x) {
+        var g = gunFarki(x.tarih);
+        return g !== null && g >= bas && g < son;
+      }).length;
+      return {
+        etiket: etiket,
+        uye: yeniUye,
+        damga: hareket.filter(function (h) { return h.tur === 'damga'; }).length + (i === 0 ? bugunDamga(S) : 0),
+        bonus: hareket.filter(function (h) { return h.tur === 'bonus'; }).length,
+        odul: hareket.filter(function (h) { return h.tur === 'odul'; }).length + (i === 0 ? (S.redeemed || 0) : 0),
+      };
+    });
+  }
+  function gunFarki(gg) {
+    var m = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(String(gg || ''));
+    if (!m) return null;
+    var t = new Date(+m[3], +m[2] - 1, +m[1]);
+    return Math.floor((Date.now() - t.getTime()) / 86400000);
+  }
+
   SAYFA.rapor = {
     baslik: 'Rapor',
     ciz: function (S) {
-      var u = uyeler(S);
-      var satir = [
-        ['Bu hafta', u.filter(function (x) { return x.gercek; }).length, bugunDamga(S), S.redeemed || 0],
-        ['Geçen hafta', 2, 14, 1], ['İki hafta önce', 1, 9, 0], ['Üç hafta önce', 2, 11, 1],
-      ];
-      return '<div class="uyari">Örnek dönemler geçmiş veriyi temsil eder; <b>Bu hafta</b> satırı ' +
-          'bu cihazdaki gerçek akıştan gelir.</div>' +
+      var d = donemler(S);
+      var toplam = d.reduce(function (a, r) { return a + r.damga; }, 0);
+      return '<div class="uyari">Örnek veriyle doldurulmuştur; <b>bu cihazdaki gerçek akış</b> ' +
+          'sayılara dahildir. Gerçek panelde dönem gün/hafta/ay olarak seçilir.</div>' +
+        '<dl class="tiles">' + kutu('30 günde damga', toplam) +
+          kutu('Verilen ödül', d.reduce(function (a, r) { return a + r.odul; }, 0)) + '</dl>' +
         '<div class="tw"><table class="t"><thead><tr><th>Dönem</th><th class="n">Yeni üye</th>' +
-        '<th class="n">Damga</th><th class="n">Ödül</th></tr></thead><tbody>' +
-        satir.map(function (r) {
-          return '<tr><td>' + r[0] + '</td><td class="n">' + r[1] + '</td><td class="n">' + r[2] +
-            '</td><td class="n">' + r[3] + '</td></tr>';
+        '<th class="n">Damga</th><th class="n">Bonus</th><th class="n">Ödül</th></tr></thead><tbody>' +
+        d.map(function (r) {
+          return '<tr><td>' + r.etiket + '</td><td class="n">' + r.uye + '</td><td class="n">' + r.damga +
+            '</td><td class="n">' + r.bonus + '</td><td class="n">' + r.odul + '</td></tr>';
         }).join('') + '</tbody></table></div>' +
         '<h2 style="font-size:1rem;margin:0 0 .5rem;color:var(--cocoa)">Nokta bazlı okutma</h2>' +
-        '<div class="tw"><table class="t"><thead><tr><th>Nokta</th><th class="n">QR</th><th class="n">NFC</th></tr></thead><tbody>' +
+        '<div class="tw"><table class="t"><thead><tr><th>Nokta</th><th class="n">QR</th><th class="n">NFC</th><th class="n">Toplam</th></tr></thead><tbody>' +
         (S.cards || []).map(function (c) {
-          return '<tr><td>' + c.etiket + ' <code>' + c.token + '</code></td><td class="n">' + c.qr +
-            '</td><td class="n">' + c.nfc + '</td></tr>';
+          return '<tr><td>' + c.etiket + ' <code>' + c.token + '</code>' +
+            (c.aktif ? '' : ' <span class="tag sil">pasif</span>') + '</td><td class="n">' + c.qr +
+            '</td><td class="n">' + c.nfc + '</td><td class="n">' + (c.qr + c.nfc) + '</td></tr>';
         }).join('') + '</tbody></table></div>' +
         '<button class="btn btn-sec" data-is="raporCsv">Raporu CSV indir</button>';
     }
   };
   ISLER.raporCsv = function (S) {
-    csvIndir('pecko-rapor-' + P.today().replace(/\./g, '-') + '.csv',
-      [['Dönem', 'Yeni üye', 'Damga', 'Ödül'], ['Bu hafta', uyeler(S).filter(function (x) { return x.gercek; }).length, bugunDamga(S), S.redeemed || 0]]);
+    var satir = [['Dönem', 'Yeni üye', 'Damga', 'Instagram bonusu', 'Verilen ödül']];
+    donemler(S).forEach(function (r) { satir.push([r.etiket, r.uye, r.damga, r.bonus, r.odul]); });
+    satir.push([]);
+    satir.push(['Nokta', 'QR okutma', 'NFC okutma', 'Toplam']);
+    (S.cards || []).forEach(function (c) { satir.push([c.etiket + ' (' + c.token + ')', c.qr, c.nfc, c.qr + c.nfc]); });
+    P.audit(S, 'rapor.disa_aktarim', donemler(S).length + ' dönem'); P.save(S);
+    csvIndir('pecko-rapor-' + P.today().replace(/\./g, '-') + '.csv', satir);
   };
 
   /* ===================== QR / NFC ===================== */
@@ -403,13 +583,21 @@
     ciz: function (S) {
       var kuyruk = iysKuyruk(S);
       var bekleyen = kuyruk.filter(function (r) { return !r.aktarim; });
+      var gecikmis = bekleyen.filter(function (r) { return r.gecikmis; });
       return '<div class="uyari">Kampanya izni veren, iznini geri alan ve üyeliğini silen her müşteri ' +
           'için bir kayıt kuyruğa girer. Mevzuat <b>3 iş günü</b> içinde bildirim ister.</div>' +
+        (gecikmis.length ? '<div class="err" style="margin-bottom:.9rem"><b>' + gecikmis.length +
+          ' kayıt yasal süreyi aştı.</b> En eskisi ' + gecikmis[0].tarih +
+          ' tarihli; en kısa sürede aktarın.</div>' : '') +
         '<dl class="tiles">' + kutu('Bekleyen', bekleyen.length) + kutu('Aktarılmış', kuyruk.length - bekleyen.length) + '</dl>' +
         (kuyruk.length ? '<div class="tw"><table class="t"><thead><tr><th>Alıcı</th><th>Tür</th><th>Kaynak</th><th>Durum</th></tr></thead><tbody>' +
           kuyruk.map(function (r) {
-            return '<tr><td>' + r.alici + '</td><td>' + r.tur + '</td><td>' + r.kaynak + '</td><td>' +
-              (r.aktarim ? '<span class="tag ok">aktarıldı</span>' : '<span class="tag bek">bekliyor</span>') + '</td></tr>';
+            return '<tr><td style="white-space:nowrap">' + r.alici + '</td><td>' +
+              '<span class="tag ' + (r.tur === 'ONAY' ? 'ok' : 'red') + '">' + r.tur + '</span></td><td>' +
+              r.kaynak + '<br><span style="color:var(--muted);font-size:.74rem">' + r.tarih + '</span></td><td>' +
+              (r.aktarim ? '<span class="tag ok">aktarıldı</span>'
+                : r.gecikmis ? '<span class="tag red">gecikmiş</span>' : '<span class="tag bek">bekliyor</span>') +
+              '</td></tr>';
           }).join('') + '</tbody></table></div>' : '<p class="bosluk">Kuyrukta kayıt yok. ' +
           'Sohbette <b>KAMPANYA EVET</b> yazarak deneyebilirsiniz.</p>') +
         (bekleyen.length ? '<button class="btn btn-primary" data-is="iysAktar">' + bekleyen.length +

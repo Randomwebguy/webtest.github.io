@@ -73,3 +73,10 @@ table.t td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowr
   text-align:center;margin-bottom:.6rem}
 .qrbox canvas,.qrbox img{width:190px;height:190px;margin:0 auto .5rem;display:block}
 .qrbox code{font-size:.72rem;word-break:break-all;display:block;margin-top:.4rem;color:var(--muted)}
+
+/* Sistem durumu kartındaki iş listesi. */
+ul.isler{list-style:none;margin:0;padding:0;display:grid;gap:.3rem}
+ul.isler li{display:flex;align-items:center;gap:.6rem;font-size:.82rem;
+  padding:.35rem 0;border-top:1px solid var(--line)}
+ul.isler li:first-child{border-top:0}
+ul.isler .right{margin-left:auto;text-align:right}
