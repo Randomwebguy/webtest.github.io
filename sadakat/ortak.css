@@ -1,11 +1,12 @@
 /* Peçko sadakat akış provası — ortak stiller. Her ekranda tam ekran: sahada telefonla
    test edildiği için cihaz çerçevesi yok, uygulama ekranı doldurur. */
+/* Marka renkleri marka.css'te; burada yalnızca WhatsApp ekranının kendi
+   paleti ve duruma bağlı renkler durur. Marka belirteçleri burada yeniden
+   tanımlanırsa marka.css'i ezer — bilerek tanımlanmıyor. */
 :root{
-  --bg:#FBF6EE; --card:#FFFFFF; --ink:#3B2622; --muted:#7A6660; --line:#EADFD2; --sunk:#F5EDE2;
-  --brand:#C8385E; --brand-ink:#A52A4B; --cocoa:#4A2C2A; --ok:#2E7D32; --ok-bg:#E7F1E4;
+  --ok:#2E7D32; --ok-bg:#E7F1E4;
   --wa-head:#1F6E5C; --wa-bed:#EBE2D8; --wa-in:#FFFFFF; --wa-out:#DCF8C6;
   --wa-ink:#1E2A25; --wa-meta:#7C8B84; --wa-link:#1B7EC2;
-  --radius:13px;
 }
 *{box-sizing:border-box}
 html,body{height:100%}
@@ -36,10 +37,10 @@ a{color:var(--brand-ink)}
   font-size:.64rem;letter-spacing:.06em;text-transform:uppercase;font-weight:600;flex:0 0 auto}
 
 /* ---- tarayıcı adres çubuğu taklidi (onay / puan sayfaları) ---- */
-.urlbar{background:#2B2422;color:#EDE2DA;display:flex;align-items:center;gap:.45rem;flex:0 0 auto;
+.urlbar{background:var(--marka-koyu);color:#E6EDF1;display:flex;align-items:center;gap:.45rem;flex:0 0 auto;
   padding:calc(env(safe-area-inset-top,0px) + .5rem) .8rem .55rem;font-size:.73rem}
 .urlbar b{font-weight:600;color:#fff}
-.urlbar a{margin-left:auto;color:#EDE2DA;text-decoration:none;background:rgba(255,255,255,.16);
+.urlbar a{margin-left:auto;color:#E6EDF1;text-decoration:none;background:rgba(255,255,255,.16);
   border-radius:8px;padding:.45rem .75rem;font-size:.78rem;display:flex;align-items:center}
 
 /* ---- kaydırılan gövde ---- */
