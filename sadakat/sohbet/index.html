@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#1F6E5C">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8E%82%3C/text%3E%3C/svg%3E">
+<title>Peçko Pastanesi · sohbet</title>
+<link rel="stylesheet" href="../ortak.css">
+</head>
+<body>
+<div class="app">
+  <header class="bar">
+    <span class="av">🎂</span>
+    <span><b>Peçko Pastanesi</b><small id="presence">çevrimiçi</small></span>
+    <span class="prova">prova</span>
+  </header>
+
+  <div class="thread" id="thread" aria-live="polite" aria-label="Sohbet"></div>
+
+  <div class="chips" id="chips"></div>
+  <form class="composer" id="form">
+    <textarea id="field" rows="1" placeholder="Mesaj" aria-label="Mesaj"></textarea>
+    <button class="send" id="send" type="submit" aria-label="Gönder">➤</button>
+  </form>
+</div>
+
+<script src="../ortak.js"></script>
+<script>
+(function () {
+  'use strict';
+  var P = window.PECKO, S = P.load();
+  var thread = document.getElementById('thread'), chips = document.getElementById('chips');
+  var field = document.getElementById('field'), send = document.getElementById('send');
+  var presence = document.getElementById('presence');
+
+  var q = new URLSearchParams(location.search);
+  if (q.get('nokta')) { S.token = q.get('nokta').toUpperCase().slice(0, 20); }
+
+  function scroll() { thread.scrollTop = thread.scrollHeight; }
+
+  function draw(entry) {
+    if (entry.d === 'sys') {
+      var s = document.createElement('div');
+      s.className = 'sys'; s.textContent = entry.x;
+      thread.appendChild(s); return;
+    }
+    var d = document.createElement('div');
+    d.className = 'msg ' + entry.d;
+    d.innerHTML = P.fmt(entry.x) + '<span class="t">' + entry.t + (entry.d === 'out' ? ' ✓✓' : '') + '</span>';
+    if (entry.b === 'onay') d.insertAdjacentHTML('beforeend', '<a class="cta" href="../onay/">Onay sayfasını aç</a>');
+    if (entry.b === 'puan') d.insertAdjacentHTML('beforeend', '<a class="cta" href="../puan/">Puan ve ödüllerim</a>');
+    thread.appendChild(d);
+  }
+
+  function render() {
+    thread.innerHTML = '';
+    S.log.forEach(draw);
+    scroll();
+    drawChips();
+  }
+
+  function say(dir, text, btn) { P.push(S, dir, text, btn); P.save(S); draw(S.log[S.log.length - 1]); scroll(); }
+
+  // Yanıt yazıyor göstergesinden sonra gelir; akış gerçek hissi versin diye.
+  function reply(text, btn, delay) {
+    var t = document.createElement('div');
+    t.className = 'typing'; t.innerHTML = '<i></i><i></i><i></i>';
+    thread.appendChild(t); scroll();
+    presence.textContent = 'yazıyor…';
+    setTimeout(function () {
+      t.remove(); presence.textContent = 'çevrimiçi';
+      say('in', text, btn);
+    }, delay || 900);
+  }
+
+  function drawChips() {
+    var list = [];
+    if (S.status === 'pending') list = ['ONAY', 'VERILERIM', 'SIL'];
+    else if (S.status === 'active') {
+      list = ['KODUM', 'PUANIM', 'INSTAGRAM', 'VERILERIM'];
+      list.push(S.pending === 'marketing' ? 'KAMPANYA EVET' : (S.marketing ? 'DUR' : 'KAMPANYA'));
+      list.push(S.pending === 'delete' ? 'SIL EVET' : 'SIL');
+      list.push('YARDIM');
+    }
+    chips.innerHTML = '';
+    list.forEach(function (cmd) {
+      var b = document.createElement('button');
+      b.type = 'button'; b.textContent = cmd;
+      b.addEventListener('click', function () { submit(cmd); });
+      chips.appendChild(b);
+    });
+  }
+
+  function submit(text) {
+    text = String(text || '').trim();
+    if (!text) return;
+    field.value = '';
+    send.classList.remove('ready');
+
+    if (S.status === 'none' || S.status === 'deleted') {
+      say('out', text);
+      // Numaraya kod atanır ama onay verilene kadar aktif olmaz.
+      S.code = P.newCode(); S.status = 'pending'; S.stamps = 0; S.redeemed = 0;
+      S.marketing = false; S.ig = null; S.events = []; S.pending = null;
+      S.createdAt = P.today() + ' ' + P.now(); S.activatedAt = null;
+      P.save(S); drawChips();
+      reply(P.MSG.welcome(S), 'onay', 1100);
+      return;
+    }
+
+    say('out', text);
+    var cmd = text.toLocaleUpperCase('tr-TR').replace(/İ/g, 'I').replace(/\s+/g, ' ').trim();
+    handle(cmd);
+  }
+
+  function handle(cmd) {
+    if (S.status === 'pending') {
+      if (cmd === 'SIL') { S.status = 'deleted'; P.save(S); drawChips(); reply(P.MSG.pendingDeleted()); return; }
+      if (cmd === 'VERILERIM') { reply(P.MSG.data(S)); return; }
+      reply(P.MSG.consentReminder(), 'onay');
+      return;
+    }
+    if (S.status !== 'active') { reply(P.MSG.notMember()); return; }
+
+    var m = cmd.match(/^INSTAGRAM\s*[:=]?\s*@?([A-Z0-9._]{2,30})$/);
+    if (m) {
+      S.ig = m[1].toLowerCase(); P.save(S);
+      reply(P.MSG.instagramLinked(S.ig));
+      return;
+    }
+
+    switch (cmd) {
+      case 'KODUM': reply(P.MSG.code(S)); break;
+      case 'PUANIM': reply(P.MSG.points(S), 'puan'); break;
+      case 'INSTAGRAM': reply(P.MSG.instagram(S)); break;
+      case 'VERILERIM': reply(P.MSG.data(S)); break;
+      case 'YARDIM': reply(P.MSG.help()); break;
+      case 'ONAY': reply('Üyeliğiniz zaten aktif. Üyelik kodunuz: *' + S.code + '*'); break;
+      case 'KAMPANYA':
+        if (S.marketing) { reply(P.MSG.marketingAlreadyOn()); break; }
+        S.pending = 'marketing'; P.save(S); drawChips();
+        reply(P.MSG.marketingPrompt());
+        break;
+      case 'KAMPANYA EVET':
+        S.marketing = true; S.pending = null; P.save(S); drawChips();
+        reply(P.MSG.marketingGranted());
+        break;
+      case 'DUR':
+        S.marketing = false; S.pending = null; P.save(S); drawChips();
+        reply(P.MSG.optedOut());
+        break;
+      case 'SIL':
+        S.pending = 'delete'; P.save(S); drawChips();
+        reply(P.MSG.deletePrompt());
+        break;
+      case 'SIL EVET':
+        S.status = 'deleted'; S.pending = null; P.save(S); drawChips();
+        reply(P.MSG.deleted());
+        setTimeout(function () { say('sys', 'Üyelik silindi. Yeni kayıt için QR\'ı yeniden okutun.'); }, 1300);
+        break;
+      default:
+        // Tanınmayan mesaja bot yanıt vermez: numara sipariş için de kullanılıyor.
+        setTimeout(function () { say('sys', 'Tanınmayan mesaja bot yanıt vermez — numara sipariş için de kullanılabilir.'); }, 500);
+    }
+  }
+
+  document.getElementById('form').addEventListener('submit', function (e) {
+    e.preventDefault(); submit(field.value);
+  });
+  field.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(field.value); }
+  });
+
+  /* --- açılış --- */
+  if (!S.log.length) {
+    P.push(S, 'sys', 'Kasadaki QR okutuldu · nokta: ' + S.token);
+    P.push(S, 'sys', 'Hazır mesaj yazı kutusunda bekliyor. WhatsApp mesajı kendiliğinden göndermez — yeşil düğmeye basın.');
+    P.save(S);
+  }
+  render();
+  if (S.status === 'none' || S.status === 'deleted') {
+    field.value = P.PREFILL(S.token);
+    send.classList.add('ready');
+  }
+
+  // Onay sayfasından dönüş: aktivasyon mesajı burada düşer.
+  if (S.justActivated) {
+    S.justActivated = false;
+    P.push(S, 'sys', 'Onay verildi · KVKK metni sürüm ' + P.LEGAL_VERSION + ' · ' + P.today());
+    P.save(S);
+    draw(S.log[S.log.length - 1]); scroll();
+    reply(P.MSG.activated(S), null, 700);
+  }
+  if (S.justDeclined) {
+    S.justDeclined = false; P.save(S);
+    say('sys', 'Vazgeçildi · numara hemen silindi');
+    reply(P.MSG.pendingDeleted(), null, 600);
+  }
+
+  // Kasa panelinden gelen damga/ödül mesajları: sohbet açıkken de düşsün.
+  function drain() {
+    var fresh = P.load();
+    if (!fresh.inbox || !fresh.inbox.length) { S = Object.assign(S, fresh); drawChips(); return; }
+    var queue = fresh.inbox.slice();
+    fresh.inbox = [];
+    S = fresh; P.save(S);
+    queue.forEach(function (item, i) {
+      setTimeout(function () {
+        if (item.sys) say('sys', item.sys);
+        reply(item.text, item.btn || null, 420);
+      }, i * 650);
+    });
+    drawChips();
+  }
+  window.addEventListener('focus', drain);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) drain(); });
+  window.addEventListener('storage', drain);
+  drain();
+})();
+</script>
+</body>
+</html>

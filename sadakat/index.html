@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#1F6E5C">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8E%82%3C/text%3E%3C/svg%3E">
+<title>Peçko Sadakat · yönlendiriliyor</title>
+<link rel="stylesheet" href="ortak.css">
+<style>
+body{background:#0E1513;display:grid;place-items:center;padding:20px}
+.hand{width:100%;max-width:340px;background:var(--card);border-radius:18px;padding:1.4rem 1.3rem;
+  text-align:center;box-shadow:0 20px 50px -20px rgba(0,0,0,.7)}
+.hand .av{width:62px;height:62px;border-radius:50%;background:#F7E7CE;display:grid;place-items:center;
+  font-size:1.9rem;margin:0 auto .7rem}
+.hand h1{font-size:1.15rem;margin:0 0 .3rem}
+.hand p{font-size:.86rem;color:var(--muted);margin:0 0 1rem}
+.hand .quote{background:var(--wa-out);border-radius:10px;padding:.6rem .7rem;font-size:.85rem;
+  text-align:left;color:var(--wa-ink);margin-bottom:1rem}
+.spin{width:26px;height:26px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--brand);
+  margin:0 auto .8rem;animation:sp .9s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.hand .tiny{font-size:.72rem;color:var(--muted);margin:.9rem 0 0}
+</style>
+</head>
+<body>
+<main class="hand">
+  <div class="av">🎂</div>
+  <h1>Peçko Pastanesi</h1>
+  <p>Sadakat programı sohbeti açılıyor…</p>
+  <div class="spin" aria-hidden="true"></div>
+  <div class="quote" id="quote">Merhaba! Sadakat programına katılmak istiyorum. #KASA1</div>
+  <a class="btn btn-primary" id="go" href="sohbet/">Sohbeti aç</a>
+  <p class="tiny">Gerçek kurulumda bu adım telefonun WhatsApp uygulamasını hazır mesajla açar.
+    Bu bir akış provasıdır, gerçek mesaj gönderilmez.</p>
+</main>
+<script src="ortak.js"></script>
+<script>
+(function () {
+  var P = window.PECKO;
+  var q = new URLSearchParams(location.search);
+  var token = (q.get('nokta') || 'KASA1').toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 20) || 'KASA1';
+  var s = P.load();
+  // QR'ı hangi noktadan okuttuğu akış boyunca taşınır (kasa, masa 3, …).
+  s.token = token;
+  P.save(s);
+  document.getElementById('quote').textContent = P.PREFILL(token);
+  var url = 'sohbet/?nokta=' + encodeURIComponent(token);
+  document.getElementById('go').setAttribute('href', url);
+  setTimeout(function () { location.replace(url); }, 1300);
+})();
+</script>
+</body>
+</html>
