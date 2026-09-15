@@ -7,6 +7,7 @@
 <meta name="theme-color" content="#1F6E5C">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8E%82%3C/text%3E%3C/svg%3E">
 <title>Peçko Sadakat · yönlendiriliyor</title>
+<link rel="stylesheet" href="marka.css">
 <link rel="stylesheet" href="ortak.css">
 <style>
 body{background:#0E1513;display:grid;place-items:center;padding:20px}
@@ -26,7 +27,7 @@ body{background:#0E1513;display:grid;place-items:center;padding:20px}
 </head>
 <body>
 <main class="hand">
-  <div class="av">🎂</div>
+  <div class="marka-logo buyuk" style="margin:0 auto .7rem" aria-hidden="true">🎂</div>
   <h1>Peçko Pastanesi</h1>
   <p>Sadakat programı sohbeti açılıyor…</p>
   <div class="spin" aria-hidden="true"></div>
@@ -39,6 +40,7 @@ body{background:#0E1513;display:grid;place-items:center;padding:20px}
 <script>
 (function () {
   var P = window.PECKO;
+  P.logoUygula();
   var q = new URLSearchParams(location.search);
   var token = (q.get('nokta') || 'KASA1').toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 20) || 'KASA1';
   var s = P.load();

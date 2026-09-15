@@ -30,8 +30,6 @@ a{color:var(--brand-ink)}
 .bar{background:var(--wa-head);color:#fff;display:flex;align-items:center;gap:.6rem;
   padding:calc(env(safe-area-inset-top,0px) + .55rem) .85rem .6rem;flex:0 0 auto}
 .bar .back{color:#fff;text-decoration:none;font-size:1.25rem;line-height:1;margin-left:-.2rem}
-.bar .av{width:36px;height:36px;border-radius:50%;background:#F7E7CE;display:grid;place-items:center;
-  font-size:1.05rem;flex:0 0 auto}
 .bar b{font-size:.95rem;font-weight:600;display:block;line-height:1.2}
 .bar small{font-size:.7rem;opacity:.85;display:block}
 .bar .prova{margin-left:auto;background:rgba(255,255,255,.2);border-radius:999px;padding:.12rem .5rem;

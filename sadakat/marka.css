@@ -1,0 +1,59 @@
+/* ============================================================================
+   MARKA KATMANI — Peçko'nun kurumsal kimliği tek yerden.
+   Siteye uyarlamak için yalnızca bu dosya değişir; diğer sayfalar bu
+   değişkenleri kullanır. WhatsApp sohbet ekranı bilinçli olarak dışarıda:
+   orası WhatsApp gibi görünmeli, yalnızca profil görseli markadan gelir.
+   ========================================================================= */
+:root{
+  /* --- renkler --- */
+  --marka-zemin:#FBF6EE;        /* sayfa zemini */
+  --marka-kart:#FFFFFF;         /* kart / form zemini */
+  --marka-gomme:#F5EDE2;        /* ikincil zemin, şerit */
+  --marka-metin:#3B2622;        /* ana metin */
+  --marka-ikincil:#7A6660;      /* ikincil metin */
+  --marka-cizgi:#EADFD2;        /* kenarlık */
+  --marka-vurgu:#C8385E;        /* birincil düğme, vurgu */
+  --marka-vurgu-koyu:#A52A4B;   /* bağlantı, basılı hâl */
+  --marka-koyu:#4A2C2A;         /* başlık şeridi, panel çubuğu */
+  --marka-koyu-uzeri:#FBF6EE;   /* koyu şerit üzerindeki metin */
+
+  /* --- yazı --- */
+  --marka-yazi:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --marka-baslik:var(--marka-yazi);
+
+  /* --- biçim --- */
+  --marka-yuvarlak:13px;
+
+  /* --- logo ---
+     Logo dosyası geldiğinde tek satır: url("../logo.svg") ya da url("../logo.png").
+     Boşken aşağıdaki yazı/emoji yedeği görünür. */
+  --marka-logo:none;
+  --marka-logo-yedek:🎂;   /* görsel yokken görünen karakter */
+  --marka-logo-zemin:#F7E7CE;   /* logonun oturduğu daire */
+}
+
+/* Marka değişkenlerini uygulamanın kendi belirteçlerine bağlar. */
+:root{
+  --bg:var(--marka-zemin);
+  --card:var(--marka-kart);
+  --sunk:var(--marka-gomme);
+  --ink:var(--marka-metin);
+  --muted:var(--marka-ikincil);
+  --line:var(--marka-cizgi);
+  --brand:var(--marka-vurgu);
+  --brand-ink:var(--marka-vurgu-koyu);
+  --cocoa:var(--marka-koyu);
+  --radius:var(--marka-yuvarlak);
+}
+
+/* Logo yuvası: görsel tanımlıysa görsel, yoksa içindeki yedek karakter görünür. */
+.marka-logo{
+  display:grid;place-items:center;flex:0 0 auto;
+  width:36px;height:36px;border-radius:50%;
+  background-color:var(--marka-logo-zemin);
+  background-image:var(--marka-logo);
+  background-size:cover;background-position:center;background-repeat:no-repeat;
+  font-size:1.05rem;line-height:1;overflow:hidden;
+}
+.marka-logo.buyuk{width:56px;height:56px;font-size:1.7rem}
+.marka-logo.kare{border-radius:9px}

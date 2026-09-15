@@ -68,7 +68,7 @@
       return '<a href="' + yol + '"' + (n[0] === aktif ? ' class="on"' : '') + '>' + n[1] + '</a>';
     }).join('');
     return '<div class="app">' +
-      '<header class="pbar"><b>' + P.esc(baslik) + '</b>' +
+      '<header class="pbar"><span class="marka-logo kare" aria-hidden="true">🎂</span><b>' + P.esc(baslik) + '</b>' +
         '<span class="rol">' + (S.shift ? P.esc(S.shift) : 'yönetici') + '</span>' +
         '<a href="' + (aktif ? '../../' : '../') + 'sohbet/">Müşteri</a></header>' +
       '<nav class="pnav">' + nav + '</nav>' +
@@ -79,6 +79,7 @@
     var S = seed(P.load());
     var c = SAYFA[sayfa || ''];
     document.body.innerHTML = kabuk(S, sayfa || '', c.baslik, c.ciz(S));
+    P.logoUygula();
     if (c.bagla) c.bagla(S);
     document.body.addEventListener('click', function (e) {
       var b = e.target.closest('[data-is]');
