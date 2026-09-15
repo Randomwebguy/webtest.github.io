@@ -31,7 +31,10 @@
   /* --- biçim: sitedeki kutular yumuşak ama keskin köşeli --- */
   --marka-yuvarlak:9px;
 
-  /* --- logo: tek satır, üç yerde birden değişir --- */
+  /* --- logo: tek satır, üç yerde birden değişir ---
+     Adres MUTLAK olmalı (https://… ya da /sadakat/logo.png gibi kökten).
+     Göreli yol alt sayfalarda kırılır: logo <img> olarak eklendiği için
+     adres belgeye göre çözülür, stil dosyasına göre değil. */
   --marka-logo:url("https://peckofirin.com.tr/images/pecko-logo.png");
   --marka-logo-yedek:🎂;
   --marka-logo-zemin:var(--marka-lacivert);
@@ -68,4 +71,8 @@ h1,h2,h3,.pbar b{font-family:var(--marka-baslik)}
 .marka-yazi-logo{display:flex;align-items:center;flex:0 0 auto;height:26px;
   font:700 1rem/1 var(--marka-baslik);color:#fff;letter-spacing:-.01em}
 .marka-yazi-logo img{height:100%;width:auto;display:block}
-.marka-yazi-logo.buyuk{height:44px}
+.marka-yazi-logo.buyuk{height:40px}
+/* Logo beyaz "peçko" + kırmızı "fırın"dan oluşuyor: açık zeminde sol yarısı
+   kaybolur. Açık yüzeylerde logo daima bu lacivert plakanın üzerinde durur. */
+.logo-plaka{background:var(--marka-lacivert);display:flex;align-items:center;justify-content:center;
+  padding:1.05rem 1rem}
