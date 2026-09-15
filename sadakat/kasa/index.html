@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#4A2C2A">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8E%82%3C/text%3E%3C/svg%3E">
+<title>Kasa paneli · Peçko Pastanesi</title>
+<link rel="stylesheet" href="../ortak.css">
+<style>
+.urlbar.staff{background:var(--cocoa)}
+.codein{display:flex;gap:.5rem}
+.codein input{flex:1;padding:.7rem .8rem;border:1px solid var(--line);border-radius:10px;font:inherit;
+  font-size:1.05rem;letter-spacing:.06em;text-transform:uppercase;background:var(--card);color:var(--ink)}
+.codein .btn{width:auto;flex:0 0 auto;padding:.7rem 1rem}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="urlbar staff">👤 <b>Kasa paneli</b><span>personel</span><a href="../sohbet/">Müşteri görünümü</a></header>
+  <div class="body"><div class="pad">
+    <h1>Kasa</h1>
+    <p class="muted small">Müşterinin söylediği üyelik kodunu yazın. Kod yanlış yazılmışsa kontrol karakteri
+      sayesinde panel uyarır — gerçek panelde olduğu gibi.</p>
+
+    <form class="codein" id="lookup">
+      <input id="kod" placeholder="PK-XXXX-XXX" autocapitalize="characters" autocomplete="off" spellcheck="false">
+      <button class="btn btn-primary" type="submit">Bul</button>
+    </form>
+    <p class="err" id="err" hidden></p>
+    <p class="small muted" id="hint"></p>
+
+    <section class="panel" id="card" hidden>
+      <div class="kv">
+        <span>Üye <b id="c-code">—</b></span>
+        <span>Damga <b id="c-stamps">0</b></span>
+        <span>Kullanılan ödül <b id="c-redeemed">0</b></span>
+      </div>
+      <div class="kv" style="margin-top:.4rem">
+        <span>Telefon <b>+90 532 *** ** 67</b></span>
+        <span>Instagram <b id="c-ig">—</b></span>
+        <span>Kampanya izni <b id="c-mkt">yok</b></span>
+      </div>
+      <p class="small muted" style="margin:.7rem 0 0">Ödül verirken müşteriden numaranın son iki hanesini
+        isteyin: <b>67</b>.</p>
+      <div class="row">
+        <button class="btn btn-primary" id="b-stamp">+1 damga</button>
+        <button class="btn btn-sec" id="b-reward">Ödülü ver</button>
+        <button class="btn btn-sec" id="b-ig">Instagram paylaşımı geldi</button>
+      </div>
+      <p class="ok" id="ok" hidden></p>
+    </section>
+
+    <div class="note" style="margin-top:1rem">
+      Bu prova tek tarayıcıda çalışır: kasa panelinde yaptığınız işlem, aynı cihazdaki müşteri sohbetine düşer.
+      Gerçek kurulumda panel sunucuda çalışır, mesaj WhatsApp'tan gider.
+    </div>
+    <a class="btn btn-sec" href="../sohbet/">Müşteri sohbetine dön</a>
+    <button class="btn btn-ghost" id="reset" type="button">Provayı sıfırla (üyeliği sil)</button>
+  </div></div>
+</div>
+
+<script src="../ortak.js"></script>
+<script>
+(function () {
+  var P = window.PECKO, S = P.load();
+  var err = document.getElementById('err'), ok = document.getElementById('ok');
+  var card = document.getElementById('card'), hint = document.getElementById('hint');
+
+  hint.textContent = S.status === 'active'
+    ? 'Şu an kayıtlı üye: ' + S.code
+    : 'Henüz aktif üye yok. Önce müşteri sohbetinden QR akışını tamamlayın.';
+
+  function show(msg) { ok.textContent = msg; ok.hidden = false; err.hidden = true; }
+  function fail(msg) { err.textContent = msg; err.hidden = false; ok.hidden = true; card.hidden = true; }
+
+  function paint() {
+    card.hidden = false;
+    document.getElementById('c-code').textContent = S.code;
+    document.getElementById('c-stamps').textContent = S.stamps;
+    document.getElementById('c-redeemed').textContent = S.redeemed;
+    document.getElementById('c-ig').textContent = S.ig ? '@' + S.ig : '—';
+    document.getElementById('c-mkt').textContent = S.marketing ? 'var' : 'yok';
+    document.getElementById('b-reward').disabled = S.stamps < P.REWARD.cost;
+  }
+
+  // Kasa panelinden gönderilen mesajlar sohbetin kutusuna bırakılır.
+  function toChat(text, sys, btn) {
+    S = P.load();
+    S.inbox = S.inbox || [];
+    S.inbox.push({ text: text, sys: sys || null, btn: btn || null });
+    P.save(S);
+  }
+
+  document.getElementById('lookup').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var raw = document.getElementById('kod').value;
+    var code = P.normalizeCode(raw);
+    S = P.load();
+    if (!code) { fail('Kod hatalı yazılmış görünüyor (kontrol karakteri uyuşmuyor). Müşteriden kodu tekrar isteyin.'); return; }
+    if (S.status !== 'active' || S.code !== code) { fail('Bu koda ait aktif bir üye bulunamadı.'); return; }
+    err.hidden = true; ok.hidden = true;
+    paint();
+  });
+
+  document.getElementById('b-stamp').addEventListener('click', function () {
+    S = P.load(); S.stamps += 1; P.event(S, 'Damga +1'); P.save(S);
+    paint(); show('+1 damga eklendi. Yeni bakiye: ' + S.stamps);
+    toChat(P.MSG.points(S), 'Kasa: personel +1 damga işledi', 'puan');
+  });
+
+  document.getElementById('b-reward').addEventListener('click', function () {
+    S = P.load();
+    if (S.stamps < P.REWARD.cost) { fail('Damga yetmiyor.'); return; }
+    S.stamps -= P.REWARD.cost; S.redeemed += 1;
+    P.event(S, 'Ödül -' + P.REWARD.cost + ' (' + P.REWARD.name + ')'); P.save(S);
+    paint(); show(P.REWARD.name + ' verildi. Kalan damga: ' + S.stamps);
+    toChat('Ödülünüz kullanıldı: ' + P.REWARD.name + ' 🎁\nKalan damga: *' + S.stamps + '*',
+      'Kasa: ödül verildi · personel son iki haneyi doğruladı');
+  });
+
+  document.getElementById('b-ig').addEventListener('click', function () {
+    S = P.load();
+    if (!S.ig) {
+      toChat(P.MSG.claimReceived(), 'Instagram: hesap kayıtlı değil, paylaşım personel kontrolüne düştü');
+      show('Hesap kayıtlı olmadığı için paylaşım personel kontrolüne düştü.');
+      return;
+    }
+    S.stamps += P.IG.story;
+    P.event(S, 'Bonus +' + P.IG.story + ' (Instagram hikayesi)'); P.save(S);
+    paint(); show('Instagram hikayesi eşleşti, +' + P.IG.story + ' damga eklendi.');
+    toChat('Instagram hikayeniz algılandı, +' + P.IG.story + ' damga kazandınız! 🎉 Toplam damga: ' + S.stamps + '.',
+      'Instagram: @' + S.ig + ' hesabımızı etiketledi · otomatik eşleşti');
+  });
+
+  document.getElementById('reset').addEventListener('click', function () {
+    P.reset();
+    location.href = '../?nokta=KASA1';
+  });
+
+  if (S.status === 'active') { document.getElementById('kod').value = S.code; }
+})();
+</script>
+</body>
+</html>

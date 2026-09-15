@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#2B2422">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8E%82%3C/text%3E%3C/svg%3E">
+<title>Puanlarım · Peçko Pastanesi</title>
+<link rel="stylesheet" href="../ortak.css">
+</head>
+<body>
+<div class="app">
+  <header class="urlbar">🔒 <b>pecko.com.tr</b><span id="path">/sadakat/uye/…</span><a href="../sohbet/">Kapat</a></header>
+  <div class="body"><div class="pad" id="pad">
+    <div id="yok" hidden>
+      <h1>Bağlantı geçerli değil</h1>
+      <p>Bu sayfanın bağlantısı 7 gün geçerlidir. WhatsApp'a <b>PUANIM</b> yazarak yenisini alabilirsiniz.</p>
+      <a class="btn btn-sec" href="../sohbet/">Sohbete dön</a>
+    </div>
+    <div id="var" hidden>
+      <div class="codebox">
+        <small>Üyelik kodunuz</small>
+        <div class="c" id="code">—</div>
+        <small>Kasada bu kodu söylemeniz yeterli</small>
+      </div>
+      <h2 style="margin-top:0">Damga durumu</h2>
+      <p class="small muted" id="sum">—</p>
+      <div class="stamps" id="grid"></div>
+      <h2>Ödüller</h2>
+      <div id="rewards"></div>
+      <h2>Instagram bonusu</h2>
+      <p class="small" id="igline">—</p>
+      <div class="note">Bu sayfa yalnızca görüntülemek içindir; damga ve ödül işlemleri kasada yapılır.
+        Bağlantı 7 gün geçerlidir, sonra WhatsApp'a <b>PUANIM</b> yazıp yenisini alırsınız.</div>
+      <a class="btn btn-sec" href="../sohbet/">Sohbete dön</a>
+    </div>
+  </div></div>
+</div>
+
+<script src="../ortak.js"></script>
+<script>
+(function () {
+  var P = window.PECKO, S = P.load();
+  if (S.status !== 'active') { document.getElementById('yok').hidden = false; return; }
+  document.getElementById('var').hidden = false;
+  document.getElementById('code').textContent = S.code;
+  document.getElementById('path').textContent = '/sadakat/uye/' + S.code.toLowerCase().replace(/-/g, '');
+
+  var cost = P.REWARD.cost, into = S.stamps % cost, full = S.stamps >= cost;
+  document.getElementById('sum').textContent =
+    S.stamps + ' damga · ' + (full ? 'ödül almaya hazırsınız' : (cost - S.stamps) + ' damga sonra ödül') +
+    (S.redeemed ? ' · bugüne kadar kullanılan ödül: ' + S.redeemed : '');
+
+  var grid = document.getElementById('grid');
+  for (var i = 0; i < cost; i++) {
+    var c = document.createElement('i');
+    var on = full ? true : i < into;
+    if (on) { c.className = 'on'; c.textContent = '🎂'; }
+    grid.appendChild(c);
+  }
+
+  document.getElementById('rewards').innerHTML =
+    '<div class="rw' + (full ? ' ready' : '') + '"><span>' + P.REWARD.name + '</span>' +
+    '<span class="cost">' + (full ? 'Hazır 🎁' : (cost - S.stamps) + ' damga kaldı') + '</span></div>';
+
+  document.getElementById('igline').innerHTML = S.ig
+    ? 'Kayıtlı hesabınız: <b>@' + P.esc(S.ig) + '</b>. ' + P.IG.handle +
+      ' hesabımızı etiketlediğiniz hikaye +' + P.IG.story + ', gönderi +' + P.IG.post +
+      ' damga kazandırır (ayda en fazla ' + P.IG.max + ').'
+    : 'Instagram hesabınız kayıtlı değil. WhatsApp\'a <b>INSTAGRAM @kullaniciadi</b> yazarsanız ' +
+      P.IG.handle + ' etiketli paylaşımlarınız otomatik damga kazandırır.';
+})();
+</script>
+</body>
+</html>

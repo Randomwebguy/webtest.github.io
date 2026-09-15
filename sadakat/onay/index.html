@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#2B2422">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8E%82%3C/text%3E%3C/svg%3E">
+<title>Üyelik onayı · Peçko Pastanesi</title>
+<link rel="stylesheet" href="../ortak.css">
+</head>
+<body>
+<div class="app">
+  <header class="urlbar">🔒 <b>pecko.com.tr</b><span id="path">/sadakat/onay/…</span><a href="../sohbet/">Kapat</a></header>
+  <div class="body"><div class="pad">
+    <div id="yok" hidden>
+      <h1>Bağlantı geçerli değil</h1>
+      <p>Bu onay bağlantısı kullanılmış veya süresi dolmuş olabilir. WhatsApp sohbetine dönüp
+        <b>ONAY</b> yazarak yeni bir bağlantı isteyebilirsiniz.</p>
+      <a class="btn btn-sec" href="../sohbet/">Sohbete dön</a>
+    </div>
+
+    <form id="form" hidden>
+      <h1>Üyeliğinizi başlatın</h1>
+      <p>Üyelik kodunuz <b id="code">—</b>. Aşağıdaki onayları verdiğinizde kodunuz aktif olur ve
+        kasada kullanmaya başlayabilirsiniz.</p>
+
+      <div class="err" id="err" hidden>Zorunlu üç kutunun da işaretlenmesi gerekiyor.</div>
+
+      <details class="legal">
+        <summary>Aydınlatma Metni ve Açık Rıza Beyanı (sürüm 1.3)</summary>
+        <h3>Veri sorumlusu</h3>
+        <p>Peçko Pastanesi. Onay ve bilgilendirme sayfaları işletmenin kendi internet sitesi üzerinden sunulur;
+          verileriniz bu site üzerinden toplanır.</p>
+        <h3>İşlenen veriler</h3>
+        <p>Telefon numaranız ve WhatsApp profil adınız; üyelik kodunuz, kayıt tarihi, kaydı başlattığınız
+          QR/NFC noktası, damga hareketleriniz ve kullandığınız ödüller; onay tarihi, IP adresi ve metin sürümü;
+          isteğe bağlı verdiğiniz Instagram kullanıcı adı ve paylaşım kontrol kayıtları. Kimlik numarası, adres,
+          doğum tarihi veya ödeme bilgisi toplanmaz.</p>
+        <h3>Aktarım</h3>
+        <p>Program WhatsApp altyapısını kullanır; mesajlaşma verileriniz Meta Platforms tarafından yurt dışındaki
+          sunucular üzerinden iletilir (KVKK m.9). Ticari elektronik ileti izniniz veya bu izni geri almanız
+          mevzuat gereği İleti Yönetim Sistemi'ne (İYS) kaydedilir.</p>
+        <h3>Saklama</h3>
+        <p>Onay sayfasını tamamlamayan başvurular 72 saat sonra silinir. Son işleminizden itibaren 2 yıl işlem
+          yapılmazsa üyeliğiniz sona erer ve verileriniz silinir veya anonim hale getirilir.</p>
+        <h3>Haklarınız</h3>
+        <p>WhatsApp'a <b>VERILERIM</b> yazarak tüm verilerinizin dökümünü alabilir, <b>KAMPANYA</b>/<b>DUR</b> ile
+          izin yönetebilir, <b>SIL</b> ile üyeliğinizi tamamen silebilirsiniz. KVKK m.11 kapsamındaki
+          başvurularınız en geç 30 gün içinde ücretsiz sonuçlandırılır.</p>
+        <p class="muted">Bu prova sayfasında metin özetlenmiştir; yayına alınacak sürümde tam metin yer alır.</p>
+      </details>
+
+      <label class="check"><input type="checkbox" id="okudum">
+        <span><b>Aydınlatma Metni</b>'ni okudum ve anladım.</span></label>
+
+      <label class="check"><input type="checkbox" id="riza">
+        <span><b>Program üyeliği (zorunlu):</b> Açık Rıza Beyanı'nın "Program üyeliği" bölümünü kabul ediyor;
+          telefon numaramın üyelik amacıyla işlenmesine ve WhatsApp/Meta altyapısı üzerinden yurt dışına
+          aktarılmasına açık rıza veriyorum.</span></label>
+
+      <label class="check"><input type="checkbox" id="yas"><span>18 yaşından büyüğüm.</span></label>
+
+      <label class="txt"><b>Instagram kullanıcı adınız</b> <span class="muted">(isteğe bağlı)</span> —
+        @peckopastanesi hesabımızı etiketlediğiniz paylaşımlar otomatik olarak damga kazandırsın.
+        <input type="text" id="ig" placeholder="@kullaniciadi" autocapitalize="none" spellcheck="false"
+          autocomplete="off" maxlength="40"></label>
+
+      <label class="check opt"><input type="checkbox" id="pazarlama">
+        <span><b>İsteğe bağlı:</b> Kampanya, indirim ve yeniliklerden WhatsApp üzerinden haberdar olmak
+          istiyorum (ticari elektronik ileti izni). İstediğim zaman <b>DUR</b> yazarak vazgeçebilirim.</span></label>
+
+      <button class="btn btn-primary" id="ok" type="submit">Onaylıyorum, üyeliğimi başlat</button>
+      <button class="btn btn-ghost" id="no" type="button">Vazgeç ve numaramı sil</button>
+      <p class="small muted" style="margin-top:.8rem">Sürüm 1.3 · Onayınız tarih, saat ve IP adresiyle
+        birlikte kaydedilir.</p>
+    </form>
+  </div></div>
+</div>
+
+<script src="../ortak.js"></script>
+<script>
+(function () {
+  var P = window.PECKO, S = P.load();
+  var form = document.getElementById('form'), yok = document.getElementById('yok');
+
+  // Onay bağlantısı tek kullanımlıktır: aktif veya silinmiş üyelikte sayfa açılmaz.
+  if (S.status !== 'pending') { yok.hidden = false; return; }
+
+  form.hidden = false;
+  document.getElementById('code').textContent = S.code;
+  document.getElementById('path').textContent = '/sadakat/onay/' + S.code.toLowerCase().replace(/-/g, '');
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var ok = ['okudum', 'riza', 'yas'].every(function (id) { return document.getElementById(id).checked; });
+    document.getElementById('err').hidden = ok;
+    if (!ok) { document.getElementById('err').scrollIntoView({ block: 'center' }); return; }
+
+    var ig = document.getElementById('ig').value.trim().replace(/^@/, '').toLowerCase();
+    S.ig = /^[a-z0-9._]{2,30}$/.test(ig) ? ig : null;
+    S.marketing = document.getElementById('pazarlama').checked;
+    S.status = 'active';
+    S.activatedAt = P.today() + ' ' + P.now();
+    S.justActivated = true;
+    P.save(S);
+    location.href = '../sohbet/';
+  });
+
+  document.getElementById('no').addEventListener('click', function () {
+    S.status = 'deleted'; S.justDeclined = true; P.save(S);
+    location.href = '../sohbet/';
+  });
+})();
+</script>
+</body>
+</html>
