@@ -1,21 +1,22 @@
 /* Yönetim paneli provası — mobil öncelikli. ortak.css üzerine biner. */
 .pbar{background:var(--cocoa);color:#FBF6EE;flex:0 0 auto;
   padding:calc(env(safe-area-inset-top,0px) + .6rem) .9rem .65rem;display:flex;align-items:center;gap:.6rem}
-.pbar b{font-size:1rem;font-weight:600}
+.pbar b{font-size:.95rem;font-weight:600;padding-left:.65rem;margin-left:.15rem;
+  border-left:1px solid rgba(255,255,255,.28)}
 .pbar .rol{margin-left:auto;background:rgba(255,255,255,.18);border-radius:999px;padding:.2rem .6rem;
   font-size:.7rem;font-weight:600;letter-spacing:.04em}
 .pbar a{color:#FBF6EE;text-decoration:none;font-size:.78rem;background:rgba(255,255,255,.18);
   border-radius:8px;padding:.4rem .7rem;display:flex;align-items:center}
 
-.pnav{display:flex;gap:.4rem;overflow-x:auto;padding:.5rem .6rem;background:#41252350;
-  background:var(--sunk);border-bottom:1px solid var(--line);flex:0 0 auto;scrollbar-width:none;
+.pnav{display:flex;gap:.4rem;overflow-x:auto;padding:.5rem .6rem;
+  background:var(--marka-lacivert-2);border-bottom:0;flex:0 0 auto;scrollbar-width:none;
   -webkit-mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 26px),transparent 100%);
   mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 26px),transparent 100%)}
 .pnav::-webkit-scrollbar{display:none}
-.pnav a{flex:0 0 auto;border:1px solid var(--line);background:var(--card);color:var(--ink);
+.pnav a{flex:0 0 auto;border:1px solid rgba(255,255,255,.22);background:transparent;color:#DCE6EB;
   border-radius:19px;padding:0 .8rem;min-height:38px;display:flex;align-items:center;
   font:600 .78rem/1 inherit;text-decoration:none;white-space:nowrap}
-.pnav a.on{background:var(--cocoa);color:#FBF6EE;border-color:var(--cocoa)}
+.pnav a.on{background:var(--marka-turuncu);color:#fff;border-color:var(--marka-turuncu)}
 
 /* Telefonda 2x2: dört kutu 3+1 diye bölünüp tek başına satır bırakmasın. */
 .tiles{display:grid;grid-template-columns:repeat(2,1fr);gap:.5rem;margin-bottom:.9rem}

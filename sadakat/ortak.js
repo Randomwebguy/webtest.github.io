@@ -7,7 +7,7 @@
   var KEY = 'pecko.sadakat.prova.v1';
   var P = {};
 
-  P.BUSINESS = 'Peçko Pastanesi';
+  P.BUSINESS = 'Peçko Fırın';     // sitedeki ticari ad
   P.REWARD = { name: '1 adet hediye kahve', cost: 10 };          // öntanımlı katalog
   P.activeRewards = function (s) {
     var list = (s && s.rewards && s.rewards.length) ? s.rewards : [{ id: 1, ad: P.REWARD.name, bedel: P.REWARD.cost, aktif: true }];
@@ -19,9 +19,9 @@
     for (var i = 0; i < list.length; i++) if (list[i].bedel > s.stamps) return list[i];
     return null;
   };
-  P.IG = { handle: '@peckopastanesi', story: 1, post: 2, max: 2, win: 60 };
+  P.IG = { handle: '@peckocafe', story: 1, post: 2, max: 2, win: 60 };
   P.LEGAL_VERSION = '1.3';
-  P.KVKK_URL = 'https://www.pecko.com.tr/sadakat/kvkk';
+  P.KVKK_URL = 'https://peckofirin.com.tr/sadakat/kvkk';
   P.PREFILL = function (token) { return 'Merhaba! Sadakat programına katılmak istiyorum. #' + token; };
 
   var HINT = 'Puanlarınızı ve alabileceğiniz ödülleri aşağıdaki düğmeden görebilirsiniz; istediğiniz zaman PUANIM yazarak bu sayfaya yeniden ulaşabilirsiniz.';
@@ -231,11 +231,22 @@
     return s;
   };
 
-  // Logo görseli tanımlıysa yuvadaki yedek karakter kaldırılır. Tek kaynak marka.css.
+  // Logo adresi marka.css'teki --marka-logo değişkeninden gelir; tek kaynak orası.
+  // <img> kullanılır ki hotlink kesilse bile yedek karakter görünsün ve sayfa bozulmasın.
   P.logoUygula = function (kok) {
-    var deger = getComputedStyle(document.documentElement).getPropertyValue('--marka-logo').trim();
-    if (!deger || deger === 'none') return;
-    (kok || document).querySelectorAll('.marka-logo').forEach(function (el) { el.textContent = ''; });
+    var ham = getComputedStyle(document.documentElement).getPropertyValue('--marka-logo').trim();
+    if (!ham || ham === 'none') return;
+    var url = ham.replace(/^url\((["']?)/, '').replace(/(["']?)\)$/, '');
+    (kok || document).querySelectorAll('.marka-logo, .marka-yazi-logo').forEach(function (el) {
+      if (el.querySelector('img')) return;
+      var yedek = el.textContent;
+      var img = new Image();
+      img.alt = P.BUSINESS;
+      img.onload = function () { el.textContent = ''; el.appendChild(img); };
+      img.onerror = function () { /* yedek karakter yerinde kalır */ };
+      img.src = url;
+      void yedek;
+    });
   };
 
   w.PECKO = P;

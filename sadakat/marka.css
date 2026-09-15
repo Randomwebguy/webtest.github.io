@@ -1,35 +1,40 @@
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap");
 /* ============================================================================
-   MARKA KATMANI — Peçko'nun kurumsal kimliği tek yerden.
-   Siteye uyarlamak için yalnızca bu dosya değişir; diğer sayfalar bu
-   değişkenleri kullanır. WhatsApp sohbet ekranı bilinçli olarak dışarıda:
-   orası WhatsApp gibi görünmeli, yalnızca profil görseli markadan gelir.
+   MARKA KATMANI — peckofirin.com.tr kurumsal kimliği.
+   Renkler sitenin üst şeridi, arama düğmesi ve logosundan alındı.
+   WhatsApp sohbet ekranı bilinçli olarak dışarıda: orası WhatsApp gibi
+   görünmeli; oradan markaya bağlanan tek şey profil görselindeki logo.
    ========================================================================= */
 :root{
-  /* --- renkler --- */
-  --marka-zemin:#FBF6EE;        /* sayfa zemini */
+  /* --- sitenin kendi renkleri --- */
+  --marka-lacivert:#0C2A35;     /* üst şerit */
+  --marka-lacivert-2:#15394A;   /* menü şeridi */
+  --marka-turuncu:#F0592B;      /* arama düğmesi, birincil eylem */
+  --marka-kirmizi:#E32227;      /* logodaki "fırın", uyarı vurgusu */
+
+  /* --- uygulamaya dağıtılan roller --- */
+  --marka-zemin:#F4F6F7;        /* sayfa zemini */
   --marka-kart:#FFFFFF;         /* kart / form zemini */
-  --marka-gomme:#F5EDE2;        /* ikincil zemin, şerit */
-  --marka-metin:#3B2622;        /* ana metin */
-  --marka-ikincil:#7A6660;      /* ikincil metin */
-  --marka-cizgi:#EADFD2;        /* kenarlık */
-  --marka-vurgu:#C8385E;        /* birincil düğme, vurgu */
-  --marka-vurgu-koyu:#A52A4B;   /* bağlantı, basılı hâl */
-  --marka-koyu:#4A2C2A;         /* başlık şeridi, panel çubuğu */
-  --marka-koyu-uzeri:#FBF6EE;   /* koyu şerit üzerindeki metin */
+  --marka-gomme:#EDF1F3;        /* ikincil zemin, şerit */
+  --marka-metin:#16252E;        /* ana metin */
+  --marka-ikincil:#6A7A84;      /* ikincil metin */
+  --marka-cizgi:#DFE6E9;        /* kenarlık */
+  --marka-vurgu:var(--marka-turuncu);
+  --marka-vurgu-koyu:#C8410F;   /* bağlantı, basılı hâl */
+  --marka-koyu:var(--marka-lacivert);
+  --marka-koyu-uzeri:#FFFFFF;
 
   /* --- yazı --- */
-  --marka-yazi:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --marka-yazi:Poppins,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   --marka-baslik:var(--marka-yazi);
 
-  /* --- biçim --- */
-  --marka-yuvarlak:13px;
+  /* --- biçim: sitedeki kutular yumuşak ama keskin köşeli --- */
+  --marka-yuvarlak:9px;
 
-  /* --- logo ---
-     Logo dosyası geldiğinde tek satır: url("../logo.svg") ya da url("../logo.png").
-     Boşken aşağıdaki yazı/emoji yedeği görünür. */
-  --marka-logo:none;
-  --marka-logo-yedek:🎂;   /* görsel yokken görünen karakter */
-  --marka-logo-zemin:#F7E7CE;   /* logonun oturduğu daire */
+  /* --- logo: tek satır, üç yerde birden değişir --- */
+  --marka-logo:url("https://peckofirin.com.tr/images/pecko-logo.png");
+  --marka-logo-yedek:🎂;
+  --marka-logo-zemin:var(--marka-lacivert);
 }
 
 /* Marka değişkenlerini uygulamanın kendi belirteçlerine bağlar. */
@@ -44,16 +49,23 @@
   --brand-ink:var(--marka-vurgu-koyu);
   --cocoa:var(--marka-koyu);
   --radius:var(--marka-yuvarlak);
+  --danger:var(--marka-kirmizi);
 }
+body{font-family:var(--marka-yazi)}
+h1,h2,h3,.pbar b{font-family:var(--marka-baslik)}
 
-/* Logo yuvası: görsel tanımlıysa görsel, yoksa içindeki yedek karakter görünür. */
+/* --- logo yuvaları -------------------------------------------------------
+   .marka-logo      → yuvarlak profil görseli (WhatsApp başlığı)
+   .marka-yazi-logo → yatay kelime logosu (panel çubuğu, yönlendirme sayfası)
+   Görsel yüklenemezse yedek karakter kalır; hotlink kesilirse sayfa bozulmaz. */
 .marka-logo{
   display:grid;place-items:center;flex:0 0 auto;
-  width:36px;height:36px;border-radius:50%;
-  background-color:var(--marka-logo-zemin);
-  background-image:var(--marka-logo);
-  background-size:cover;background-position:center;background-repeat:no-repeat;
-  font-size:1.05rem;line-height:1;overflow:hidden;
+  width:40px;height:40px;border-radius:50%;overflow:hidden;
+  background:var(--marka-logo-zemin);
+  font-size:1.05rem;line-height:1;color:#fff;
 }
-.marka-logo.buyuk{width:56px;height:56px;font-size:1.7rem}
-.marka-logo.kare{border-radius:9px}
+.marka-logo img{width:100%;height:100%;object-fit:contain;padding:5px;display:block}
+.marka-yazi-logo{display:flex;align-items:center;flex:0 0 auto;height:26px;
+  font:700 1rem/1 var(--marka-baslik);color:#fff;letter-spacing:-.01em}
+.marka-yazi-logo img{height:100%;width:auto;display:block}
+.marka-yazi-logo.buyuk{height:44px}

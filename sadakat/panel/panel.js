@@ -68,7 +68,7 @@
       return '<a href="' + yol + '"' + (n[0] === aktif ? ' class="on"' : '') + '>' + n[1] + '</a>';
     }).join('');
     return '<div class="app">' +
-      '<header class="pbar"><span class="marka-logo kare" aria-hidden="true">🎂</span><b>' + P.esc(baslik) + '</b>' +
+      '<header class="pbar"><span class="marka-yazi-logo">Peçko Fırın</span><b>' + P.esc(baslik) + '</b>' +
         '<span class="rol">' + (S.shift ? P.esc(S.shift) : 'yönetici') + '</span>' +
         '<a href="' + (aktif ? '../../' : '../') + 'sohbet/">Müşteri</a></header>' +
       '<nav class="pnav">' + nav + '</nav>' +
@@ -283,7 +283,7 @@
     var gercekIzinli = S.status === 'active' && S.marketing;
     k.gonderildi = k.alici; k.atlandi = 0; k.durum = 'tamam';
     if (gercekIzinli) {
-      mesaj(S, 'Peçko Pastanesi’nden haber var! 🎂 Bu hafta tüm kahvelerde ikinci fincan bizden. ' +
+      mesaj(S, 'Peçko Fırın’nden haber var! 🎂 Bu hafta tüm kahvelerde ikinci fincan bizden. ' +
         'Kodunuzu kasada söylemeniz yeterli.\n\nÇıkmak için DUR yazın.', 'Kampanya gönderimi: ' + k.ad);
     } else if (S.status === 'active') {
       k.gonderildi -= 1; k.atlandi += 1;
