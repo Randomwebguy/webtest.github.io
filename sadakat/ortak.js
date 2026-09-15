@@ -19,7 +19,7 @@
     for (var i = 0; i < list.length; i++) if (list[i].bedel > s.stamps) return list[i];
     return null;
   };
-  P.IG = { handle: '@peckocafe', story: 1, post: 2, max: 2, win: 60 };
+  P.IG = { handle: '@peckofirin', story: 1, post: 2, max: 2, win: 60 };
   P.LEGAL_VERSION = '1.3';
   P.KVKK_URL = 'https://peckofirin.com.tr/sadakat/kvkk';
   P.PREFILL = function (token) { return 'Merhaba! Sadakat programına katılmak istiyorum. #' + token; };
