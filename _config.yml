@@ -1,0 +1,25 @@
+# GitHub Pages yalnızca sadakat provasını yayınlar.
+#
+# Depodaki eski site aynası ~1 GB; Pages'in 1 GB yayın sınırını aşıyordu ve
+# dağıtım günlüğü "Deployment might fail" uyarısı veriyordu. Dosyalar git'te
+# duruyor, yalnızca yayınlanmıyor. Geri almak için bu dosyayı silmek yeterli.
+exclude:
+  - .gitattributes
+  - app-4a4d2b23fa.css
+  - app-8c3dc15c0f.js
+  - blizzard-bbd9ba83ac.css
+  - cookie-consent-filter-compat-e0ceaf6d8b.js
+  - en-us
+  - fonts
+  - hero
+  - heroes-0b3c9a8560acc96784af.js
+  - images
+  - img
+  - index-wcopy.html
+  - main-0b3c9a8560acc96784af.js
+  - media-3bb4e6780a.css
+  - newrelic-b482c0e2e8.js
+  - origin.txt
+  - overwatch-ui-015beaa55b.js
+  - vendor-1c0810efca.js
+  - vendor-3e10395fb7.css
