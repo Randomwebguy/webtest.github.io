@@ -1,4 +1,5 @@
-/* Peçko sadakat akış provası — ortak stiller. Telefonda tam ekran, masaüstünde cihaz çerçevesi. */
+/* Peçko sadakat akış provası — ortak stiller. Her ekranda tam ekran: sahada telefonla
+   test edildiği için cihaz çerçevesi yok, uygulama ekranı doldurur. */
 :root{
   --bg:#FBF6EE; --card:#FFFFFF; --ink:#3B2622; --muted:#7A6660; --line:#EADFD2; --sunk:#F5EDE2;
   --brand:#C8385E; --brand-ink:#A52A4B; --cocoa:#4A2C2A; --ok:#2E7D32; --ok-bg:#E7F1E4;
@@ -14,12 +15,14 @@ body{margin:0;background:var(--wa-bed);color:var(--ink);
 a{color:var(--brand-ink)}
 :focus-visible{outline:2px solid var(--brand);outline-offset:2px;border-radius:6px}
 
-/* Ekran kabı: dar ekranda tam sayfa, geniş ekranda telefon çerçevesi. */
-.app{height:100%;display:flex;flex-direction:column;background:var(--wa-bed);overflow:hidden}
-@media(min-width:760px){
-  body{background:#EFE7DD;display:grid;place-items:center;padding:20px}
-  .app{width:392px;height:min(760px,94vh);border-radius:28px;box-shadow:0 24px 60px -28px rgba(74,44,42,.6);
-    border:9px solid #12100F;overflow:hidden}
+/* Ekran kabı: her boyutta tam ekran. dvh, iOS Safari'de adres çubuğu açılıp
+   kapanırken ekranın alt kısmının kesilmesini önler. */
+.app{height:100%;height:100dvh;display:flex;flex-direction:column;background:var(--wa-bed);
+  overflow:hidden;width:100%}
+/* Geniş ekranda satırlar aşırı uzamasın diye sohbet ortalanır — çerçeve yok. */
+@media(min-width:900px){
+  .thread,.chips,.composer,.pad{max-width:720px;margin-inline:auto;width:100%}
+  .bar,.urlbar{padding-inline:max(.85rem,calc((100% - 720px) / 2))}
 }
 
 /* ---- başlık ---- */
@@ -41,7 +44,7 @@ a{color:var(--brand-ink)}
   border-radius:6px;padding:.2rem .55rem;font-size:.72rem}
 
 /* ---- kaydırılan gövde ---- */
-.body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;background:var(--bg)}
 .pad{padding:1rem .95rem calc(env(safe-area-inset-bottom,0px) + 1.6rem);background:var(--bg);min-height:100%}
 
 h1{font-size:1.32rem;line-height:1.2;margin:0 0 .4rem;color:var(--cocoa);text-wrap:balance}
