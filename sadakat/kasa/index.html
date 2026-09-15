@@ -56,6 +56,7 @@
       Bu prova tek tarayıcıda çalışır: kasa panelinde yaptığınız işlem, aynı cihazdaki müşteri sohbetine düşer.
       Gerçek kurulumda panel sunucuda çalışır, mesaj WhatsApp'tan gider.
     </div>
+    <a class="btn btn-primary" href="../panel/">Yönetim paneline geç →</a>
     <a class="btn btn-sec" href="../sohbet/">Müşteri sohbetine dön</a>
     <button class="btn btn-ghost" id="reset" type="button">Provayı sıfırla (üyeliği sil)</button>
   </div></div>
@@ -82,7 +83,7 @@
     document.getElementById('c-redeemed').textContent = S.redeemed;
     document.getElementById('c-ig').textContent = S.ig ? '@' + S.ig : '—';
     document.getElementById('c-mkt').textContent = S.marketing ? 'var' : 'yok';
-    document.getElementById('b-reward').disabled = S.stamps < P.REWARD.cost;
+    document.getElementById('b-reward').disabled = !P.affordable(S).length;
   }
 
   // Kasa panelinden gönderilen mesajlar sohbetin kutusuna bırakılır.
@@ -105,30 +106,39 @@
   });
 
   document.getElementById('b-stamp').addEventListener('click', function () {
-    S = P.load(); S.stamps += 1; P.event(S, 'Damga +1'); P.save(S);
+    S = P.load(); S.stamps += 1; P.event(S, 'Damga +1'); P.audit(S, 'damga.eklendi', '+1 · ' + S.code); P.save(S);
     paint(); show('+1 damga eklendi. Yeni bakiye: ' + S.stamps);
     toChat(P.MSG.points(S), 'Kasa: personel +1 damga işledi', 'puan');
   });
 
   document.getElementById('b-reward').addEventListener('click', function () {
     S = P.load();
-    if (S.stamps < P.REWARD.cost) { fail('Damga yetmiyor.'); return; }
-    S.stamps -= P.REWARD.cost; S.redeemed += 1;
-    P.event(S, 'Ödül -' + P.REWARD.cost + ' (' + P.REWARD.name + ')'); P.save(S);
-    paint(); show(P.REWARD.name + ' verildi. Kalan damga: ' + S.stamps);
-    toChat('Ödülünüz kullanıldı: ' + P.REWARD.name + ' 🎁\nKalan damga: *' + S.stamps + '*',
+    // Damgası yeten ödüller arasından en pahalısı verilir; kasada mantıklı olan bu.
+    var uygun = P.affordable(S);
+    if (!uygun.length) { fail('Damga yetmiyor.'); return; }
+    var odul = uygun[uygun.length - 1];
+    S.stamps -= odul.bedel; S.redeemed += 1;
+    P.event(S, 'Ödül -' + odul.bedel + ' (' + odul.ad + ')');
+    P.audit(S, 'odul.verildi', odul.ad + ' · ' + S.code); P.save(S);
+    paint(); show(odul.ad + ' verildi. Kalan damga: ' + S.stamps);
+    toChat('Ödülünüz kullanıldı: ' + odul.ad + ' 🎁\nKalan damga: *' + S.stamps + '*',
       'Kasa: ödül verildi · personel son iki haneyi doğruladı');
   });
 
   document.getElementById('b-ig').addEventListener('click', function () {
     S = P.load();
     if (!S.ig) {
+      S.claims = S.claims || [];
+      S.claims.unshift({ id: Date.now(), kullanici: '(eşleşmedi)', tur: 'hikaye', durum: 'bekliyor',
+        damga: P.IG.story, tarih: P.today() + ' ' + P.now(), kaynak: 'ekran görüntüsü' });
+      P.audit(S, 'instagram.talep', 'eşleşmeyen paylaşım kuyruğa alındı'); P.save(S);
       toChat(P.MSG.claimReceived(), 'Instagram: hesap kayıtlı değil, paylaşım personel kontrolüne düştü');
-      show('Hesap kayıtlı olmadığı için paylaşım personel kontrolüne düştü.');
+      show('Hesap kayıtlı olmadığı için paylaşım panelde onay bekliyor (Panel → Instagram).');
       return;
     }
     S.stamps += P.IG.story;
-    P.event(S, 'Bonus +' + P.IG.story + ' (Instagram hikayesi)'); P.save(S);
+    P.event(S, 'Bonus +' + P.IG.story + ' (Instagram hikayesi)');
+    P.audit(S, 'instagram.otomatik', '@' + S.ig + ' · +' + P.IG.story); P.save(S);
     paint(); show('Instagram hikayesi eşleşti, +' + P.IG.story + ' damga eklendi.');
     toChat('Instagram hikayeniz algılandı, +' + P.IG.story + ' damga kazandınız! 🎉 Toplam damga: ' + S.stamps + '.',
       'Instagram: @' + S.ig + ' hesabımızı etiketledi · otomatik eşleşti');

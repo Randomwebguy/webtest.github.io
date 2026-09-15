@@ -8,7 +8,17 @@
   var P = {};
 
   P.BUSINESS = 'Peçko Pastanesi';
-  P.REWARD = { name: '1 adet hediye kahve', cost: 10 };
+  P.REWARD = { name: '1 adet hediye kahve', cost: 10 };          // öntanımlı katalog
+  P.activeRewards = function (s) {
+    var list = (s && s.rewards && s.rewards.length) ? s.rewards : [{ id: 1, ad: P.REWARD.name, bedel: P.REWARD.cost, aktif: true }];
+    return list.filter(function (r) { return r.aktif; }).sort(function (a, b) { return a.bedel - b.bedel; });
+  };
+  P.affordable = function (s) { return P.activeRewards(s).filter(function (r) { return s.stamps >= r.bedel; }); };
+  P.nextReward = function (s) {
+    var list = P.activeRewards(s);
+    for (var i = 0; i < list.length; i++) if (list[i].bedel > s.stamps) return list[i];
+    return null;
+  };
   P.IG = { handle: '@peckopastanesi', story: 1, post: 2, max: 2, win: 60 };
   P.LEGAL_VERSION = '1.3';
   P.KVKK_URL = 'https://www.pecko.com.tr/sadakat/kvkk';
@@ -48,7 +58,9 @@
     return {
       token: 'KASA1', code: null, status: 'none', stamps: 0, redeemed: 0,
       marketing: false, ig: null, log: [], events: [], pending: null,
-      createdAt: null, activatedAt: null
+      createdAt: null, activatedAt: null,
+      rewards: null, staff: null, shift: null, audit: null, claims: null,
+      campaigns: null, cards: null, iys: null, ornek: null
     };
   }
   // Depolama kapalı olabilir (gizli sekme, engellenmiş site verisi): sayfa yine çalışmalı.
@@ -85,11 +97,14 @@
   P.fmt = function (s) { return P.esc(s).replace(/\*([^*\n]+)\*/g, '<b>$1</b>'); };
 
   P.rewardLines = function (s) {
-    if (s.stamps >= P.REWARD.cost) {
-      return 'Şimdi alabileceğiniz ödüller: ' + P.REWARD.name + ' (' + P.REWARD.cost +
-        ' damga) 🎁 Kasada kodunuzu söylemeniz yeterli.';
+    var out = [], afford = P.affordable(s), next = P.nextReward(s);
+    if (afford.length) {
+      out.push('Şimdi alabileceğiniz ödüller: ' + afford.map(function (r) {
+        return r.ad + ' (' + r.bedel + ' damga)';
+      }).join(', ') + ' 🎁 Kasada kodunuzu söylemeniz yeterli.');
     }
-    return 'Sonraki ödül: ' + P.REWARD.name + ' – ' + (P.REWARD.cost - s.stamps) + ' damga kaldı.';
+    if (next) out.push('Sonraki ödül: ' + next.ad + ' – ' + (next.bedel - s.stamps) + ' damga kaldı.');
+    return out.join('\n');
   };
 
   /* --- mesajlar: src/messages.js ile birebir --- */
@@ -206,6 +221,13 @@
   P.event = function (s, text) {
     s.events.push('• ' + P.today() + ' ' + P.now() + ' – ' + text);
     if (s.events.length > 40) s.events.splice(0, s.events.length - 40);
+    return s;
+  };
+
+  P.audit = function (s, islem, detay) {
+    s.audit = s.audit || [];
+    s.audit.unshift({ t: P.today() + ' ' + P.now(), kim: s.shift ? s.shift + ' (personel)' : 'yönetici', islem: islem, detay: detay || '' });
+    if (s.audit.length > 200) s.audit.length = 200;
     return s;
   };
 

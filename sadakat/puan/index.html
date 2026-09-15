@@ -47,22 +47,24 @@
   document.getElementById('code').textContent = S.code;
   document.getElementById('path').textContent = '/sadakat/uye/' + S.code.toLowerCase().replace(/-/g, '');
 
-  var cost = P.REWARD.cost, into = S.stamps % cost, full = S.stamps >= cost;
+  var liste = P.activeRewards(S), next = P.nextReward(S), afford = P.affordable(S);
+  var hedef = next ? next.bedel : (liste.length ? liste[liste.length - 1].bedel : 10);
   document.getElementById('sum').textContent =
-    S.stamps + ' damga · ' + (full ? 'ödül almaya hazırsınız' : (cost - S.stamps) + ' damga sonra ödül') +
+    S.stamps + ' damga · ' + (afford.length ? 'ödül almaya hazırsınız' : (hedef - S.stamps) + ' damga sonra ödül') +
     (S.redeemed ? ' · bugüne kadar kullanılan ödül: ' + S.redeemed : '');
 
   var grid = document.getElementById('grid');
-  for (var i = 0; i < cost; i++) {
+  for (var i = 0; i < hedef; i++) {
     var c = document.createElement('i');
-    var on = full ? true : i < into;
-    if (on) { c.className = 'on'; c.textContent = '🎂'; }
+    if (i < S.stamps) { c.className = 'on'; c.textContent = '🎂'; }
     grid.appendChild(c);
   }
 
-  document.getElementById('rewards').innerHTML =
-    '<div class="rw' + (full ? ' ready' : '') + '"><span>' + P.REWARD.name + '</span>' +
-    '<span class="cost">' + (full ? 'Hazır 🎁' : (cost - S.stamps) + ' damga kaldı') + '</span></div>';
+  document.getElementById('rewards').innerHTML = liste.map(function (r) {
+    var hazir = S.stamps >= r.bedel;
+    return '<div class="rw' + (hazir ? ' ready' : '') + '"><span>' + P.esc(r.ad) + '</span>' +
+      '<span class="cost">' + (hazir ? 'Hazır 🎁' : (r.bedel - S.stamps) + ' damga kaldı') + '</span></div>';
+  }).join('');
 
   document.getElementById('igline').innerHTML = S.ig
     ? 'Kayıtlı hesabınız: <b>@' + P.esc(S.ig) + '</b>. ' + P.IG.handle +
