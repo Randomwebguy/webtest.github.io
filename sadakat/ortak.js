@@ -231,5 +231,12 @@
     return s;
   };
 
+  // Logo görseli tanımlıysa yuvadaki yedek karakter kaldırılır. Tek kaynak marka.css.
+  P.logoUygula = function (kok) {
+    var deger = getComputedStyle(document.documentElement).getPropertyValue('--marka-logo').trim();
+    if (!deger || deger === 'none') return;
+    (kok || document).querySelectorAll('.marka-logo').forEach(function (el) { el.textContent = ''; });
+  };
+
   w.PECKO = P;
 })(window);
