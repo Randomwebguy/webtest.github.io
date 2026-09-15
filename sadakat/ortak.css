@@ -89,9 +89,11 @@ p{margin:0 0 .7rem;font-size:.9rem}
   -webkit-user-select:none;user-select:none}
 .composer{background:#F2EDE6;border-top:1px solid #DED5CB;flex:0 0 auto;display:flex;gap:.45rem;
   align-items:flex-end;padding:.5rem .55rem calc(env(safe-area-inset-bottom,0px) + .5rem)}
-.composer textarea{flex:1;background:#fff;border:0;border-radius:22px;padding:.62rem .9rem;font:inherit;
+.composer textarea{flex:1;background:#fff;border:0;border-radius:20px;padding:.6rem .9rem;font:inherit;
   /* 16px altına düşmemeli: iOS Safari odakta sayfayı yakınlaştırır ve düzen bozulur. */
-  font-size:16px;line-height:1.35;resize:none;height:44px;max-height:110px;color:var(--wa-ink)}
+  font-size:16px;line-height:1.4;resize:none;
+  /* İki satır tam görünsün: 2 × 22.4px satır + 19.2px dikey dolgu. */
+  height:64px;min-height:64px;max-height:120px;color:var(--wa-ink)}
 .send{width:46px;height:46px;border-radius:50%;border:0;background:#25D366;color:#fff;font-size:1.15rem;
   cursor:pointer;flex:0 0 auto;display:grid;place-items:center}
 .send.ready{animation:pulse 1.6s infinite}
