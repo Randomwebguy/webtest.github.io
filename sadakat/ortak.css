@@ -41,7 +41,7 @@ a{color:var(--brand-ink)}
   padding:calc(env(safe-area-inset-top,0px) + .5rem) .8rem .55rem;font-size:.73rem}
 .urlbar b{font-weight:600;color:#fff}
 .urlbar a{margin-left:auto;color:#E6EDF1;text-decoration:none;background:rgba(255,255,255,.16);
-  border-radius:8px;padding:.45rem .75rem;font-size:.78rem;display:flex;align-items:center}
+  border-radius:8px;padding:.45rem .75rem;font-size:.78rem;min-height:44px;display:flex;align-items:center}
 
 /* ---- kaydırılan gövde ---- */
 .body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;background:var(--bg)}

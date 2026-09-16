@@ -386,8 +386,8 @@
           kutu('Bekleyen paylaşım', bekleyen) + kutu('İYS bekleyen', iysBekleyen) +
         '</dl>' +
         (fisBekleyen ? '<div class="uyari"><b>' + fisBekleyen + ' fiş onay bekliyor.</b> ' +
-          'Yüksek tutarlı ve okuması netleşmeyen fişler personel kararını bekler — ' +
-          '<a href="fisler/">Fişler sekmesi</a>.</div>' : '') +
+          'Yüksek tutarlı ve okuması netleşmeyen fişler personel kararını bekler.' +
+          '<a class="btn btn-sec" href="fisler/" style="margin-top:.6rem">Fişleri aç</a></div>' : '') +
         sistemDurumu(S) +
         '<h2 style="font-size:1rem;margin:1rem 0 .5rem;color:var(--cocoa)">Son üyeler</h2>' +
         (sonUyeler ? '<div class="list">' + sonUyeler + '</div>' : '<p class="bosluk">Henüz üye yok. QR akışını tamamlayın.</p>') +
