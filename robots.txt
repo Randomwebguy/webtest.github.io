@@ -1,0 +1,5 @@
+# Peçko sadakat provası — iç test için yayında, arama motorlarında görünmemeli.
+# Sayfaların kendi <meta name="robots" content="noindex, nofollow"> etiketi de var;
+# bu dosya tarayıcıların siteye hiç girmemesini sağlar.
+User-agent: *
+Disallow: /
