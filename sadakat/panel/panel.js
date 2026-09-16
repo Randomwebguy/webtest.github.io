@@ -5,9 +5,9 @@
   var P = w.PECKO, PANEL = {};
 
   var NAV = [
-    ['', 'Özet'], ['uyeler', 'Üyeler'], ['oduller', 'Ödüller'], ['kampanyalar', 'Kampanyalar'],
-    ['instagram', 'Instagram'], ['rapor', 'Rapor'], ['qr', 'QR / NFC'], ['iys', 'İYS'],
-    ['personel', 'Personel'], ['denetim', 'Denetim'],
+    ['', 'Özet'], ['uyeler', 'Üyeler'], ['fisler', 'Fişler'], ['oduller', 'Ödüller'],
+    ['kampanyalar', 'Kampanyalar'], ['instagram', 'Instagram'], ['rapor', 'Rapor'],
+    ['qr', 'QR / NFC'], ['iys', 'İYS'], ['personel', 'Personel'], ['denetim', 'Denetim'],
   ];
 
   /* --- örnek veri ------------------------------------------------------
@@ -16,21 +16,110 @@
      paylaşımlar, tamamlanmış ve yarım kalmış kampanyalar, gecikmiş İYS
      kaydı. Akıştaki gerçek üye bunlara karışmaz, listede üstte ve etiketli
      durur. MOCK sürümü artınca veri bir kez yenilenir. */
-  var MOCK = 3;
+  var MOCK = 7;
 
   function gun(n) {   // n gün önce, gg.aa.yyyy
     return new Date(Date.now() - n * 86400000).toLocaleDateString('tr-TR');
   }
   function saat(n, s, d) { return gun(n) + ' ' + ('0' + s).slice(-2) + ':' + ('0' + (d || 0)).slice(-2); }
 
+  // Tekrarlanabilir sözde-rastgele: sayfa her açıldığında aynı örnek veri çıksın.
+  function tohumlu(n) {
+    var t = n >>> 0;
+    return function () { t = (t * 1103515245 + 12345) % 2147483648; return t / 2147483648; };
+  }
+
+  /* --- örnek üye üretimi ---
+     Önce hareketler üretilir, puan bakiyesi ve harcama bunlardan hesaplanır:
+     üye kartındaki "hangi puan nereden geldi" dökümü toplamla birebir uyuşsun.
+     Fiş puanı, o anki harcamanın karşılığı olan seviye çarpanıyla verilir —
+     gerçek sistemdeki sıra da budur. */
+  function uyeKur(k, i) {
+    var ziyaret = k[5], fisAdet = k[6], ort = k[7], igAdet = k[8], hedefBakiye = k[9];
+    var rnd = tohumlu(i * 977 + 13);
+    var ledger = [], fisler = [], igler = [];
+    var harcama = 0, n, g, puan, tur;
+
+    function zaman(gunOnce, sira) {
+      return gun(gunOnce) + ' ' + ('0' + (9 + (sira % 11))).slice(-2) + ':' + ('0' + ((sira * 17) % 60)).slice(-2);
+    }
+    function yaz(gunOnce, sira, t, p, metin) {
+      ledger.push({ ts: Date.now() - gunOnce * 86400000, t: zaman(gunOnce, sira), tur: t, puan: p, not: metin });
+    }
+
+    // Fişler eskiden yeniye işlenir ki çarpan o günkü seviyeye göre uygulansın.
+    var gunler = [];
+    for (n = 0; n < fisAdet; n++) gunler.push(1 + Math.floor(rnd() * 330));
+    gunler.sort(function (a, b) { return b - a; });
+    gunler.forEach(function (gunOnce, sira) {
+      var tutar = Math.round(ort * (0.6 + rnd() * 0.8) * 100) / 100;
+      var p = P.puanFor(tutar, P.tierForSpend(harcama).carpan);
+      harcama += tutar;
+      fisler.push({ id: 'F' + i + '-' + sira, ts: Date.now() - gunOnce * 86400000, t: zaman(gunOnce, sira),
+        tutar: tutar, no: String(100000 + Math.floor(rnd() * 899999)), fisTarih: zaman(gunOnce, sira),
+        isletme: 'PEÇKO FIRIN', guven: Math.round((0.9 + rnd() * 0.09) * 100) / 100,
+        durum: 'onaylandı', puan: p, sebep: null });
+      yaz(gunOnce, sira, 'fis', p, 'Fiş +' + p + ' (' + P.tl(tutar) + ')');
+    });
+
+    for (n = 0; n < ziyaret; n++) {
+      g = 1 + Math.floor(rnd() * 200);
+      yaz(g, n, 'ziyaret', 1, 'Puan +1 (ziyaret)');
+    }
+
+    for (n = 0; n < igAdet; n++) {
+      g = 3 + Math.floor(rnd() * 120);
+      tur = n % 3 === 2 ? 'gönderi' : 'hikaye';
+      puan = tur === 'gönderi' ? P.IG.post : P.IG.story;
+      igler.push({ tur: tur, tarih: zaman(g, n), durum: 'onaylandı', puan: puan,
+        kaynak: k[3] ? 'otomatik eşleşme' : 'ekran görüntüsü' });
+      yaz(g, n, 'instagram', puan, 'Bonus +' + puan + ' (Instagram ' + tur + ')');
+    }
+
+    // Ödüller: üye biriken puanı harcar, elinde hedeflenen bakiye kalır. Puanı
+    // hiç harcamayan bir üye gerçekçi değil — çok kazanan çok ödül alır.
+    var kazanilan = ledger.reduce(function (a, r) { return a + r.puan; }, 0);
+    var bedeller = [[5, 'Kurabiye'], [10, '1 adet hediye kahve'], [10, '%5 indirim'],
+      [16, 'Dilim yaş pasta'], [20, '%10 indirim'], [35, '%15 indirim']];
+    var harcanan = 0, verilen = 0;
+    while (verilen < 60) {
+      var o = bedeller[Math.floor(rnd() * bedeller.length)];
+      if (kazanilan - harcanan - o[0] < hedefBakiye) break;
+      harcanan += o[0]; verilen++;
+      g = 2 + Math.floor(rnd() * 200);
+      yaz(g, verilen, 'odul', -o[0], 'Ödül -' + o[0] + ' (' + o[1] + ')');
+    }
+
+    ledger.sort(function (a, b) { return b.ts - a.ts; });
+    fisler.reverse();
+    // Döküm tam geçmişten hesaplanır; aşağıdaki "son hareketler" listesi kırpılır.
+    return {
+      kod: P.newCode(), ad: k[0], durum: k[1], pazarlama: k[2], ig: k[3], nokta: k[4],
+      puan: kazanilan - harcanan, odul: verilen,
+      kaynak: dokumHesapla(ledger),
+      fisler: fisler, igler: igler, ledger: ledger.slice(0, 24),
+      // Kayıt tarihi uydurulmaz: ilk hareketten birkaç gün öncesi. Hiç hareketi
+      // olmayan (onay bekleyen) üyeler yeni başvuru sayılır, son günlere düşer.
+      tarih: ledger.length
+        ? gun(Math.round((Date.now() - ledger[ledger.length - 1].ts) / 86400000) + 2 + (i % 5))
+        : gun(1 + (i % 9)),
+      ornek: true
+    };
+  }
+
   function seed(S) {
     if (S.mockSurum === MOCK) return S;
 
+    // Ürün ödülleri ve kademeli yüzde indirimi aynı katalogda: indirim yalnızca
+    // buradan, puan karşılığı verilir — seviye indirim vermez.
     S.rewards = [
-      { id: 1, ad: 'Kurabiye (100 gr)', bedel: 5, aktif: true },
-      { id: 2, ad: '1 adet hediye kahve', bedel: 10, aktif: true },
-      { id: 3, ad: 'Dilim yaş pasta', bedel: 16, aktif: true },
-      { id: 4, ad: 'Yaz limonatası', bedel: 8, aktif: false },
+      { id: 1, ad: 'Kurabiye (100 gr)', bedel: 5, tur: 'urun', aktif: true },
+      { id: 2, ad: '1 adet hediye kahve', bedel: 10, tur: 'urun', aktif: true },
+      { id: 3, ad: 'Dilim yaş pasta', bedel: 16, tur: 'urun', aktif: true },
+      { id: 4, ad: 'Yaz limonatası', bedel: 8, tur: 'urun', aktif: false },
+      { id: 5, ad: '%5 indirim', yuzde: 5, bedel: 10, tur: 'yuzde', aktif: true },
+      { id: 6, ad: '%10 indirim', yuzde: 10, bedel: 20, tur: 'yuzde', aktif: true },
+      { id: 7, ad: '%15 indirim', yuzde: 15, bedel: 35, tur: 'yuzde', aktif: true },
     ];
 
     S.staff = [
@@ -47,31 +136,55 @@
     ];
 
     // Üyelik durumlarının tamamı temsil edilir: aktif, onay bekleyen, silinmiş;
-    // izinli/izinsiz; Instagram hesabı olan ve olmayan.
+    // izinli/izinsiz; Instagram hesabı olan ve olmayan; seviyelerin dördü de dolu.
+    // Alanlar: ad, durum, izin, instagram, nokta, ziyaret, fiş adedi, ortalama
+    // fiş tutarı (TL), Instagram paylaşımı, elde kalan puan (hedef bakiye).
     var kisiler = [
-      ['Ayşe Yıldız',   34, 'active',  true,  2,  'ayseyildiz',  'KASA1'],
-      ['Mehmet Kaya',   12, 'active',  false, 5,  null,          'KASA1'],
-      ['Elif Demir',     3, 'active',  true,  1,  'elifdemir',   'MASA3'],
-      ['Burak Şen',      0, 'pending', false, 0,  null,          'KASA1'],
-      ['Zeynep Ak',     21, 'active',  true,  3,  'zeynep.ak',   'KASA1'],
-      ['Caner Öz',       8, 'active',  false, 0,  null,          'MASA3'],
-      ['Derya Tunç',    17, 'active',  true,  1,  'deryatunc',   'KASA1'],
-      ['Emre Balcı',     1, 'active',  false, 0,  null,          'KASA1'],
-      ['Fatma Arslan',  26, 'active',  true,  4,  null,          'MASA3'],
-      ['Gökhan Yurt',    0, 'pending', false, 0,  null,          'MASA3'],
-      ['Hale Kurt',      6, 'active',  true,  0,  'halekurt',    'KASA1'],
-      ['İlker Doğan',   11, 'active',  false, 1,  null,          'KASA1'],
-      ['Jale Erdem',     0, 'deleted', false, 2,  null,          'KASA1'],
-      ['Kemal Aydın',    4, 'active',  true,  0,  null,          'PAKET'],
+      ['Ayşe Yıldız',   'active',  true,  'ayseyildiz', 'KASA1', 26,  42, 515, 4, 34],
+      ['Mehmet Kaya',   'active',  false, null,         'KASA1', 18,  16, 180, 0, 12],
+      ['Elif Demir',    'active',  true,  'elifdemir',  'MASA3',  7,   5, 128, 3,  3],
+      ['Burak Şen',     'pending', false, null,         'KASA1',  0,   0,   0, 0,  0],
+      ['Zeynep Ak',     'active',  true,  'zeynep.ak',  'KASA1', 21,  24, 385, 5, 21],
+      ['Caner Öz',      'active',  false, null,         'MASA3', 12,   9, 155, 0,  8],
+      ['Derya Tunç',    'active',  true,  'deryatunc',  'KASA1', 15,  14, 305, 2, 17],
+      ['Emre Balcı',    'active',  false, null,         'KASA1',  3,   1, 120, 0,  4],
+      ['Fatma Arslan',  'active',  true,  null,         'MASA3', 19,  21, 390, 0, 26],
+      ['Gökhan Yurt',   'pending', false, null,         'MASA3',  0,   0,   0, 0,  0],
+      ['Hale Kurt',     'active',  true,  'halekurt',   'KASA1',  9,   6, 165, 1,  9],
+      ['İlker Doğan',   'active',  false, null,         'KASA1', 14,  11, 240, 0, 11],
+      ['Jale Erdem',    'deleted', false, null,         'KASA1',  0,   0,   0, 0,  0],
+      ['Kemal Aydın',   'active',  true,  null,         'PAKET',  6,   4, 120, 0,  5],
     ];
-    S.ornek = kisiler.map(function (k, i) {
-      return { kod: P.newCode(), ad: k[0], damga: k[1], durum: k[2], pazarlama: k[3],
-        odul: k[4], ig: k[5], nokta: k[6], tarih: gun(3 + i * 2 + (i % 3)), ornek: true };
-    });
+    S.ornek = kisiler.map(function (k, i) { return uyeKur(k, i); });
+
+    // Personel kontrolüne düşen fişler: yüksek tutar, düşük okuma güveni ve
+    // reddedilmiş bir örnek. Bunlar harcamaya ve puana SAYILMAZ; onaylanınca sayılır.
+    function fisEkle(ad, fis) {
+      var u = S.ornek.filter(function (x) { return x.ad === ad; })[0];
+      if (!u) return;
+      fis.id = 'F' + ad.length + '-' + Math.round(fis.tutar * 100);
+      fis.uye = u.kod; fis.no = fis.no || String(100000 + Math.round(fis.tutar));
+      fis.fisTarih = fis.t;
+      // Rozetteki puan elle yazılmaz: üyenin o anki seviyesinden hesaplanır.
+      if (fis.durum === 'bekliyor') fis.puan = P.puanFor(fis.tutar, seviyeOf(u).carpan);
+      u.fisler.unshift(fis);
+    }
+    fisEkle('Ayşe Yıldız', { ts: Date.now() - 3600000, t: saat(0, 12, 35), tutar: 1680, isletme: 'PEÇKO FIRIN',
+      guven: 0.94, durum: 'bekliyor', sebep: 'Tutar yüksek olduğu için personel kontrolüne alındı.' });
+    fisEkle('Caner Öz', { ts: Date.now() - 5 * 3600000, t: saat(0, 10, 5), tutar: 214.5, isletme: 'PEÇKO FIRIN',
+      guven: 0.61, durum: 'bekliyor', sebep: 'Okuma netleşmediği için personel kontrolüne alındı.' });
+    fisEkle('Derya Tunç', { ts: Date.now() - 26 * 3600000, t: saat(1, 19, 10), tutar: 320, isletme: 'PEÇKO FIRIN',
+      guven: 0.58, durum: 'bekliyor', sebep: 'Okuma netleşmediği için personel kontrolüne alındı.' });
+    fisEkle('Hale Kurt', { ts: Date.now() - 2 * 86400000, t: saat(2, 15, 40), tutar: 96, isletme: 'SİMİT SARAYI ŞUBE 12',
+      guven: 0.93, durum: 'reddedildi', puan: 0,
+      sebep: 'Bu fiş bize ait görünmüyor. Yalnızca mağazalarımızdan aldığınız fişler puan kazandırır.' });
+    fisEkle('Mehmet Kaya', { ts: Date.now() - 3 * 86400000, t: saat(3, 8, 20), tutar: 0, isletme: '—',
+      guven: 0.2, durum: 'reddedildi', puan: 0,
+      sebep: 'Fotoğraftan fiş okunamadı. Fişin tamamı görünecek şekilde, düz ve net bir fotoğraf gönderin.' });
 
     // Rapor ve özet sayaçları bu olay günlüğünden hesaplanır; uydurma satır yok.
     S.hareket = [];
-    var turler = [['damga', 1, 62], ['bonus', 1, 11], ['odul', -1, 14]];
+    var turler = [['puan', 1, 62], ['bonus', 1, 11], ['odul', -1, 14]];
     var tohum = 7;
     function rast(n) { tohum = (tohum * 1103515245 + 12345) % 2147483648; return tohum % n; }
     turler.forEach(function (t) {
@@ -84,12 +197,12 @@
 
     // Instagram: otomatik eşleşen, personel onaylı, reddedilen ve bekleyenler.
     S.claims = [
-      { id: 9001, kullanici: '@deryatunc',   tur: 'hikaye',  durum: 'bekliyor',    damga: 1, tarih: saat(0, 11, 20), kaynak: 'gizli hesap · ekran görüntüsü' },
-      { id: 9002, kullanici: '(eşleşmedi)',  tur: 'gönderi', durum: 'bekliyor',    damga: 2, tarih: saat(0, 9, 45),  kaynak: 'ekran görüntüsü' },
-      { id: 9003, kullanici: '@ayseyildiz',  tur: 'hikaye',  durum: 'onaylandı',   damga: 1, tarih: saat(1, 16, 5),  kaynak: 'otomatik eşleşme' },
-      { id: 9004, kullanici: '@zeynep.ak',   tur: 'gönderi', durum: 'onaylandı',   damga: 2, tarih: saat(2, 13, 30), kaynak: 'otomatik eşleşme' },
-      { id: 9005, kullanici: '@halekurt',    tur: 'hikaye',  durum: 'reddedildi',  damga: 0, tarih: saat(4, 18, 12), kaynak: 'etiket görünmüyor' },
-      { id: 9006, kullanici: '@elifdemir',   tur: 'hikaye',  durum: 'onaylandı',   damga: 1, tarih: saat(6, 12, 0),  kaynak: 'otomatik eşleşme' },
+      { id: 9001, kullanici: '@deryatunc',   tur: 'hikaye',  durum: 'bekliyor',    puan: 1, tarih: saat(0, 11, 20), kaynak: 'gizli hesap · ekran görüntüsü' },
+      { id: 9002, kullanici: '(eşleşmedi)',  tur: 'gönderi', durum: 'bekliyor',    puan: 2, tarih: saat(0, 9, 45),  kaynak: 'ekran görüntüsü' },
+      { id: 9003, kullanici: '@ayseyildiz',  tur: 'hikaye',  durum: 'onaylandı',   puan: 1, tarih: saat(1, 16, 5),  kaynak: 'otomatik eşleşme' },
+      { id: 9004, kullanici: '@zeynep.ak',   tur: 'gönderi', durum: 'onaylandı',   puan: 2, tarih: saat(2, 13, 30), kaynak: 'otomatik eşleşme' },
+      { id: 9005, kullanici: '@halekurt',    tur: 'hikaye',  durum: 'reddedildi',  puan: 0, tarih: saat(4, 18, 12), kaynak: 'etiket görünmüyor' },
+      { id: 9006, kullanici: '@elifdemir',   tur: 'hikaye',  durum: 'onaylandı',   puan: 1, tarih: saat(6, 12, 0),  kaynak: 'otomatik eşleşme' },
     ];
 
     // Kampanyalar: tamamlanmış, hatalı alıcısı olan ve henüz gönderilmemiş taslak.
@@ -113,16 +226,19 @@
     ];
 
     S.audit = [
-      { t: saat(0, 10, 12), kim: 'Zeynep (personel)', islem: 'damga.eklendi',       detay: '+1 · Kasa 1' },
+      { t: saat(0, 10, 12), kim: 'Zeynep (personel)', islem: 'puan.eklendi',       detay: '+1 · Kasa 1' },
       { t: saat(0, 9, 48),  kim: 'Mert (personel)',   islem: 'odul.verildi',        detay: '1 adet hediye kahve' },
+      { t: saat(0, 12, 36), kim: 'sistem',            islem: 'fis.kontrol',         detay: '1.680,00 TL · tutar yüksek' },
+      { t: saat(0, 11, 2),  kim: 'sistem',            islem: 'fis.onay',            detay: '465,00 TL · +9 puan' },
       { t: saat(1, 17, 3),  kim: 'yönetici',          islem: 'instagram.onay',      detay: '@ayseyildiz · +1' },
+      { t: saat(2, 15, 41), kim: 'sistem',            islem: 'fis.red',             detay: 'unvan eşleşmedi' },
       { t: saat(1, 14, 22), kim: 'yönetici',          islem: 'customer.phone_revealed', detay: 'gerekçe: ödül doğrulaması' },
       { t: saat(2, 19, 40), kim: 'yönetici',          islem: 'kampanya.gonderildi', detay: 'Ekim kahve kampanyası · 38 mesaj' },
-      { t: saat(3, 11, 15), kim: 'Selin (personel)',  islem: 'damga.duzeltme',      detay: '-1 · gerekçe: çift okutma' },
+      { t: saat(3, 11, 15), kim: 'Selin (personel)',  islem: 'puan.duzeltme',      detay: '-1 · gerekçe: çift okutma' },
       { t: saat(4, 18, 30), kim: 'yönetici',          islem: 'instagram.red',       detay: '@halekurt' },
       { t: saat(5, 9, 5),   kim: 'yönetici',          islem: 'iys.aktarim',         detay: '12 kayıt' },
       { t: saat(7, 16, 50), kim: 'yönetici',          islem: 'customer.deleted',    detay: 'KVKK silme talebi' },
-      { t: saat(9, 12, 0),  kim: 'yönetici',          islem: 'odul.eklendi',        detay: 'Dilim yaş pasta · 16 damga' },
+      { t: saat(9, 12, 0),  kim: 'yönetici',          islem: 'odul.eklendi',        detay: 'Dilim yaş pasta · 16 puan' },
       { t: saat(12, 8, 40), kim: 'yönetici',          islem: 'personel.pasif',      detay: 'Onur' },
       { t: saat(12, 8, 35), kim: 'yönetici',          islem: 'oturum.kapatildi',    detay: '3 oturum' },
     ];
@@ -132,7 +248,7 @@
     S.giden = {
       gonderildi: 312, basarisiz: 2, saat: 24,
       hatalar: [
-        { t: saat(0, 8, 12), tur: 'damga bildirimi',
+        { t: saat(0, 8, 12), tur: 'puan bildirimi',
           hata: '(#131047) 24 saatlik pencere kapalı; şablon tanımlı değil' },
         { t: saat(0, 7, 40), tur: 'kampanya',
           hata: '(#130429) Dakikalık gönderim sınırı aşıldı, alıcı kuyrukta kaldı' },
@@ -141,6 +257,7 @@
     S.isler = [
       { ad: 'Saklama süresi temizliği', son: saat(0, 4, 0), hata: null },
       { ad: 'Instagram etiket sorgusu', son: saat(0, 9, 55), hata: null },
+      { ad: 'Fiş okuma', son: saat(0, 12, 35), hata: null },
       { ad: 'Kampanya gönderimi', son: saat(0, 9, 40), hata: null },
     ];
 
@@ -150,15 +267,58 @@
   }
   function yeniTarih(n) { return gun(-n); }
 
-  /* --- üyeler: akıştaki gerçek üye + örnekler --- */
+  /* --- üyeler: akıştaki gerçek üye + örnekler ---
+     Her iki taraf da aynı alanlara sahip olsun ki üye kartı tek kodla çizilsin. */
   function uyeler(S) {
     var out = [];
     if (S.code) {
-      out.push({ kod: S.code, ad: 'Test Müşteri', damga: S.stamps, durum: S.status,
+      var led = (S.ledger || []).slice();
+      var toplam = led.reduce(function (a, r) { return a + r.puan; }, 0);
+      var fark = (S.stamps || 0) - toplam;
+      // Defter, bu özellik eklenmeden önceki puanları bilmez; aradaki farkı
+      // uydurmak yerine "önceki hareketler" diye ayrı bir satırda gösteririz.
+      if (fark) led.push({ ts: 0, t: (S.createdAt || P.today()), tur: 'onceki', puan: fark, not: 'Önceki hareketler' });
+      out.push({ kod: S.code, ad: 'Test Müşteri', puan: S.stamps, durum: S.status,
         pazarlama: S.marketing, odul: S.redeemed || 0, ig: S.ig, nokta: S.token,
-        tarih: (S.createdAt || '').split(' ')[0] || P.today(), gercek: true });
+        tarih: (S.createdAt || '').split(' ')[0] || P.today(), gercek: true,
+        fisler: S.receipts || [],
+        igler: (S.claims || []).filter(function (c) { return c.gercek; }).map(function (c) {
+          return { tur: c.tur, tarih: c.tarih, durum: c.durum, puan: c.puan, kaynak: c.kaynak };
+        }),
+        kaynak: dokumHesapla(led), ledger: led });
     }
     return out.concat(S.ornek || []);
+  }
+
+  var KAYNAK_ADI = { ziyaret: ['🏪', 'Ziyaret'], fis: ['🧾', 'Fiş'], instagram: ['📸', 'Instagram'],
+    odul: ['🎁', 'Kullanılan ödül'], onceki: ['•', 'Önceki hareketler'] };
+
+  function dokumHesapla(ledger) {
+    var d = {};
+    (ledger || []).forEach(function (r) {
+      d[r.tur] = d[r.tur] || { adet: 0, puan: 0 };
+      d[r.tur].adet++; d[r.tur].puan += r.puan;
+    });
+    return d;
+  }
+  // Harcama tek kaynaktan: onaylanmış ve dönem içindeki fişler.
+  function harcamaOf(u) {
+    var sinir = Date.now() - P.TIER_WINDOW_DAYS * 86400000;
+    return (u.fisler || []).reduce(function (a, r) {
+      return a + (r.durum === 'onaylandı' && r.ts >= sinir ? r.tutar : 0);
+    }, 0);
+  }
+  function seviyeOf(u) { return P.tierForSpend(harcamaOf(u)); }
+  function fisSay(u, durum) {
+    return (u.fisler || []).filter(function (r) { return r.durum === durum; }).length;
+  }
+  // Panelin tamamındaki fişler tek listede: Fişler sekmesi bunun üzerinde çalışır.
+  function tumFisler(S) {
+    var out = [];
+    uyeler(S).forEach(function (u) {
+      (u.fisler || []).forEach(function (r) { out.push({ fis: r, uye: u }); });
+    });
+    return out.sort(function (a, b) { return b.fis.ts - a.fis.ts; });
   }
 
   /* --- yerleşim --- */
@@ -217,15 +377,17 @@
       var u = uyeler(S), aktifUye = u.filter(function (x) { return x.durum === 'active'; }).length;
       var bekleyen = (S.claims || []).filter(function (c) { return c.durum === 'bekliyor'; }).length;
       var iysBekleyen = (S.iys || []).filter(function (r) { return !r.aktarim; }).length;
-      var sonUyeler = u.slice(0, 4).map(function (x) {
-        return '<div class="item"><span><span class="mono">' + x.kod + '</span>' +
-          '<span class="sub">' + P.esc(x.ad) + ' · ' + x.tarih + '</span></span>' +
-          '<span class="right">' + x.damga + ' damga<br>' + rozet(x.durum) + '</span></div>';
-      }).join('');
+      var fisBekleyen = tumFisler(S).filter(function (x) { return x.fis.durum === 'bekliyor'; }).length;
+      var ciro = tumFisler(S).reduce(function (a, x) { return a + (x.fis.durum === 'onaylandı' ? x.fis.tutar : 0); }, 0);
+      var sonUyeler = u.slice(0, 4).map(uyeSatiri).join('');
       return '<dl class="tiles">' +
-          kutu('Aktif üye', aktifUye) + kutu('Bugün damga', bugunDamga(S)) +
+          kutu('Aktif üye', aktifUye) + kutu('Bugün puan', bugunPuan(S)) +
+          kutu('Bekleyen fiş', fisBekleyen) + kutu('Okunan ciro', P.tlKisa(ciro)) +
           kutu('Bekleyen paylaşım', bekleyen) + kutu('İYS bekleyen', iysBekleyen) +
         '</dl>' +
+        (fisBekleyen ? '<div class="uyari"><b>' + fisBekleyen + ' fiş onay bekliyor.</b> ' +
+          'Yüksek tutarlı ve okuması netleşmeyen fişler personel kararını bekler.' +
+          '<a class="btn btn-sec" href="fisler/" style="margin-top:.6rem">Fişleri aç</a></div>' : '') +
         sistemDurumu(S) +
         '<h2 style="font-size:1rem;margin:1rem 0 .5rem;color:var(--cocoa)">Son üyeler</h2>' +
         (sonUyeler ? '<div class="list">' + sonUyeler + '</div>' : '<p class="bosluk">Henüz üye yok. QR akışını tamamlayın.</p>') +
@@ -263,13 +425,13 @@
     var n = (S.hareket || []).filter(function (h) {
       return h.tur === tur && h.gun < gunAraligi;
     }).length;
-    if (tur === 'damga') {
+    if (tur === 'puan') {
       var b = P.today();
-      n += (S.events || []).filter(function (e) { return e.indexOf('• ' + b) === 0 && e.indexOf('Damga') > -1; }).length;
+      n += (S.events || []).filter(function (e) { return e.indexOf('• ' + b) === 0 && e.indexOf('Puan') > -1; }).length;
     }
     return n;
   }
-  function bugunDamga(S) { return hareketSay(S, 'damga', 1); }
+  function bugunPuan(S) { return hareketSay(S, 'puan', 1); }
 
   /* ===================== ÜYELER ===================== */
   SAYFA.uyeler = {
@@ -297,13 +459,7 @@
           return t.indexOf(q.toLocaleLowerCase('tr-TR')) > -1;
         });
         document.getElementById('liste').innerHTML = liste.length
-          ? '<div class="list">' + liste.map(function (x) {
-              return '<div class="item"><span><span class="mono">' + x.kod + '</span>' +
-                '<span class="sub">' + P.esc(x.ad) + (x.gercek ? ' · <b>bu cihazdaki üye</b>' : '') +
-                (x.ig ? ' · @' + P.esc(x.ig) : '') + ' · ' + (x.nokta || '—') + ' · ' + x.tarih + '</span></span>' +
-                '<span class="right">' + x.damga + ' damga<br>' + rozet(x.durum) +
-                (x.pazarlama ? ' <span class="tag ok">izinli</span>' : '') + '</span></div>';
-            }).join('') + '</div>'
+          ? '<div class="list">' + liste.map(uyeSatiri).join('') + '</div>'
           : '<p class="bosluk">Bu süzgece uyan üye yok.</p>';
       }
       document.getElementById('ara').addEventListener('submit', function (e) {
@@ -318,42 +474,319 @@
       ciz();
     }
   };
+  // Satırın tamamı düğme: dokunulduğunda üye kartı açılır.
+  function uyeSatiri(x) {
+    var sv = seviyeOf(x), bek = fisSay(x, 'bekliyor');
+    return '<button type="button" class="item" data-is="uyeKart" data-kod="' + x.kod + '">' +
+      '<span><span class="mono">' + x.kod + '</span>' +
+      '<span class="sub">' + P.esc(x.ad) + (x.gercek ? ' · <b>bu cihazdaki üye</b>' : '') +
+      (x.ig ? ' · @' + P.esc(x.ig) : '') + ' · ' + (x.nokta || '—') + ' · ' + x.tarih + '</span>' +
+      '<span class="sub">' + sv.ad + ' · ' + P.tl(harcamaOf(x)) + ' harcama' +
+      (bek ? ' · <b>' + bek + ' fiş bekliyor</b>' : '') + '</span></span>' +
+      '<span class="right">' + x.puan + ' puan<br>' + rozet(x.durum) +
+      (x.pazarlama ? ' <span class="tag ok">izinli</span>' : '') + '<span class="ok">›</span></span></button>';
+  }
+  ISLER.uyeKart = function (S, b) { kartAc(b.dataset.kod); };
+
   ISLER.uyeCsv = function (S) {
-    var satir = [['Üye kodu', 'Durum', 'Ad', 'Instagram', 'Damga', 'Kullanılan ödül', 'Kampanya izni', 'Kayıt noktası', 'Kayıt']];
+    var satir = [['Üye kodu', 'Durum', 'Ad', 'Instagram', 'Puan', 'Harcama (TL)', 'Seviye', 'Fiş',
+      'Kullanılan ödül', 'Kampanya izni', 'Kayıt noktası', 'Kayıt']];
     uyeler(S).forEach(function (x) {
       satir.push([x.kod, { active: 'Aktif', pending: 'Onay bekliyor', deleted: 'Silindi' }[x.durum] || x.durum,
-        x.ad, x.ig ? '@' + x.ig : '', x.damga, x.odul || 0,
+        x.ad, x.ig ? '@' + x.ig : '', x.puan,
+        harcamaOf(x).toFixed(2).replace('.', ','), seviyeOf(x).ad, (x.fisler || []).length, x.odul || 0,
         x.pazarlama ? 'Evet' : 'Hayır', x.nokta || '', x.tarih]);
     });
     P.audit(S, 'uye.disa_aktarim', satir.length - 1 + ' kayıt'); P.save(S);
     csvIndir('uyeler-' + P.today().replace(/\./g, '-') + '.csv', satir);
   };
 
+  /* ===================== ÜYE KARTI (modal) =====================
+     Panelde bir üyeye dokunulduğunda açılır: puanı, harcaması, seviyesi,
+     yüklediği fişler, Instagram paylaşımları ve puanın hangi kaynaktan
+     geldiği tek ekranda. Sayılar uydurulmaz, üyenin kendi hareketlerinden
+     hesaplanır — döküm toplamı her zaman bakiyeye eşittir. */
+  function kartAc(kod) {
+    var S = P.load(), u = uyeler(S).filter(function (x) { return x.kod === kod; })[0];
+    if (!u) return;
+    var eski = document.getElementById('kart');
+    if (eski) eski.remove();
+    var d = document.createElement('div');
+    d.className = 'kart'; d.id = 'kart';
+    d.setAttribute('role', 'dialog'); d.setAttribute('aria-modal', 'true');
+    d.setAttribute('aria-label', u.ad + ' üye kartı');
+    d.innerHTML = '<div class="kart-in">' + kartIcerik(u, S) + '</div>';
+    document.body.appendChild(d);
+    document.body.classList.add('kilit');
+    d.addEventListener('click', function (e) { if (e.target === d) kartKapat(); });
+    var kapat = d.querySelector('[data-kapat]');
+    if (kapat) { kapat.addEventListener('click', kartKapat); kapat.focus(); }
+  }
+  function kartKapat() {
+    var d = document.getElementById('kart');
+    if (d) d.remove();
+    document.body.classList.remove('kilit');
+  }
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') kartKapat(); });
+
+  function kartIcerik(u, S) {
+    var sv = seviyeOf(u), harcama = harcamaOf(u);
+    var bekleyen = fisSay(u, 'bekliyor');
+    var alt = sv.esik, ust = sv.sonraki ? sv.sonraki.esik : Math.max(harcama, 1);
+    var oran = ust > alt ? Math.min(100, Math.round(((harcama - alt) / (ust - alt)) * 100)) : 100;
+
+    // Döküm: kazandıran kaynaklar çubukla, kullanılan ödül ayrı satırda.
+    var k = u.kaynak || {};
+    var artilar = ['fis', 'ziyaret', 'instagram', 'onceki'].filter(function (t) { return k[t] && k[t].puan > 0; });
+    var enBuyuk = artilar.reduce(function (a, t) { return Math.max(a, k[t].puan); }, 1);
+    var dokum = artilar.map(function (t) {
+      var ad = KAYNAK_ADI[t] || ['•', t];
+      return '<div class="dk"><span class="dk-ad">' + ad[0] + ' ' + ad[1] +
+        '<small>' + k[t].adet + ' hareket</small></span>' +
+        '<span class="dk-cubuk"><i style="width:' + Math.round((k[t].puan / enBuyuk) * 100) + '%"></i></span>' +
+        '<b>+' + k[t].puan + '</b></div>';
+    }).join('');
+    var eksiler = ['odul'].filter(function (t) { return k[t] && k[t].puan; }).map(function (t) {
+      return '<div class="dk eksi"><span class="dk-ad">' + KAYNAK_ADI[t][0] + ' ' + KAYNAK_ADI[t][1] +
+        '<small>' + k[t].adet + ' kez</small></span><span class="dk-cubuk"></span><b>' + k[t].puan + '</b></div>';
+    }).join('');
+
+    var fisler = (u.fisler || []).slice(0, 10).map(function (r) {
+      var etiket = { 'onaylandı': 'ok', 'bekliyor': 'bek', 'reddedildi': 'red' }[r.durum] || 'bek';
+      return '<div class="item"><span><b>' + P.tl(r.tutar) + '</b>' +
+        '<span class="sub">' + r.t + (r.no ? ' · fiş no ' + r.no : '') +
+        (r.guven ? ' · güven %' + Math.round(r.guven * 100) : '') +
+        (r.sebep ? '<br>' + P.esc(r.sebep) : '') + '</span></span>' +
+        '<span class="right"><span class="tag ' + etiket + '">' + r.durum + '</span>' +
+        (r.durum === 'onaylandı' ? '<br>+' + r.puan + ' puan' : '') + '</span></div>';
+    }).join('');
+
+    var igler = (u.igler || []).slice(0, 8).map(function (c) {
+      return '<div class="item"><span><b>' + c.tur + '</b><span class="sub">' + c.tarih + ' · ' + c.kaynak + '</span></span>' +
+        '<span class="right"><span class="tag ' + (c.durum === 'onaylandı' ? 'ok' : c.durum === 'reddedildi' ? 'red' : 'bek') + '">' +
+        c.durum + '</span>' + (c.durum === 'onaylandı' ? '<br>+' + c.puan + ' puan' : '') + '</span></div>';
+    }).join('');
+
+    var hareket = (u.ledger || []).slice(0, 12).map(function (r) {
+      return '<tr><td style="white-space:nowrap">' + r.t + '</td><td>' + P.esc(r.not) + '</td>' +
+        '<td class="n"><b style="color:' + (r.puan < 0 ? 'var(--marka-kirmizi)' : 'var(--ok)') + '">' +
+        (r.puan > 0 ? '+' : '') + r.puan + '</b></td></tr>';
+    }).join('');
+
+    return '<header class="kart-bas">' +
+        '<div><b>' + P.esc(u.ad) + '</b><span class="mono">' + u.kod + '</span></div>' +
+        '<button class="kapat" type="button" data-kapat aria-label="Kapat">✕</button></header>' +
+      '<div class="kart-govde">' +
+        '<p class="kart-alt">' + rozet(u.durum) + (u.pazarlama ? ' <span class="tag ok">kampanya izinli</span>' : '') +
+          (u.ig ? ' <span class="tag sil">@' + P.esc(u.ig) + '</span>' : '') +
+          (u.gercek ? ' <span class="tag bek">bu cihazdaki üye</span>' : '') +
+          '<br><span class="sub">Kayıt: ' + u.tarih + ' · nokta: ' + (u.nokta || '—') +
+          ' · telefon: <b>+90 (5**) *** ** ' + (u.kod.slice(-2)) + '</b></span></p>' +
+        '<dl class="tiles">' + kutu('Puan', u.puan) + kutu('Harcama', P.tlKisa(harcama)) +
+          kutu('Seviye', sv.ad) + kutu('Fiş', (u.fisler || []).length) + '</dl>' +
+        (bekleyen ? '<div class="uyari"><b>' + bekleyen + ' fiş onay bekliyor.</b> ' +
+          'Fişler sekmesinden karar verin; onaylanan tutar harcamaya ve puana o anda eklenir.</div>' : '') +
+        '<div class="seviye"><div class="sv-ust"><b>' + sv.ad + '</b>' +
+          '<span class="cost">' + (sv.carpan > 1 ? 'puan ×' + sv.carpan : 'normal puan') + '</span></div>' +
+          '<div class="sv-cubuk"><i style="width:' + oran + '%"></i></div>' +
+          '<p class="sub" style="margin:.45rem 0 0">Son 12 ayda ' + P.tl(harcama) +
+          (sv.sonraki ? ' · <b>' + sv.sonraki.ad + '</b> seviyesine ' + P.tlKisa(sv.kalanTl) + ' kaldı' : ' · en üst seviye') +
+          '</p></div>' +
+        '<h3 class="kart-bas3">Puan nereden geldi</h3>' +
+        (dokum || eksiler ? '<div class="dokum">' + dokum + eksiler +
+          '<div class="dk toplam"><span class="dk-ad">Bakiye</span><span class="dk-cubuk"></span><b>' +
+          u.puan + '</b></div></div>'
+          : '<p class="bosluk">Henüz puan hareketi yok.</p>') +
+        '<h3 class="kart-bas3">Fişler</h3>' +
+        (fisler ? '<div class="list">' + fisler + '</div>'
+          : '<p class="bosluk">Bu üye henüz fiş yüklemedi.</p>') +
+        '<h3 class="kart-bas3">Instagram paylaşımları</h3>' +
+        (igler ? '<div class="list">' + igler + '</div>'
+          : '<p class="bosluk">Paylaşım kaydı yok' + (u.ig ? '.' : '; Instagram hesabı da kayıtlı değil.') + '</p>') +
+        '<h3 class="kart-bas3">Son hareketler</h3>' +
+        (hareket ? '<div class="tw"><table class="t"><thead><tr><th>Zaman</th><th>Hareket</th><th class="n">Puan</th></tr></thead><tbody>' +
+          hareket + '</tbody></table></div>' : '<p class="bosluk">Hareket yok.</p>') +
+        (u.gercek ? '<a class="btn btn-sec" href="../../kasa/">Kasa ekranında aç</a>' : '') +
+      '</div>';
+  }
+
+  /* ===================== FİŞLER =====================
+     Okunan fişlerin çoğu kendiliğinden sonuçlanır; buraya yalnızca yüksek
+     tutarlı ve okuması netleşmeyen fişler düşer. Personelin işi bu ikisini
+     ayırt etmek olduğu için ekran sadeleştirilmiştir. */
+  SAYFA.fisler = {
+    baslik: 'Fişler',
+    ciz: function (S) {
+      var hepsi = tumFisler(S);
+      var bekleyen = hepsi.filter(function (x) { return x.fis.durum === 'bekliyor'; });
+      var gecmis = hepsi.filter(function (x) { return x.fis.durum !== 'bekliyor'; });
+      var bugun = new Date(); bugun.setHours(0, 0, 0, 0);
+      var bugunku = hepsi.filter(function (x) { return x.fis.ts >= bugun.getTime(); }).length;
+      var onayli = hepsi.filter(function (x) { return x.fis.durum === 'onaylandı'; });
+      var ciro = onayli.reduce(function (a, x) { return a + x.fis.tutar; }, 0);
+      var puan = onayli.reduce(function (a, x) { return a + x.fis.puan; }, 0);
+
+      return '<div class="uyari">Müşteri <b>FIS</b> yazıp fişin fotoğrafını gönderir; tutar okunur ve ' +
+          'her ' + P.RECEIPT.tlBasina + ' TL için 1 puan eklenir. Otomatik sonuçlanmayanlar — ' +
+          P.tlKisa(P.RECEIPT.kontrolUstu) + ' üstü ve okuması netleşmeyen fişler — buraya düşer.</div>' +
+        '<dl class="tiles">' + kutu('Bekleyen', bekleyen.length) + kutu('Bugün gelen', bugunku) +
+          kutu('Fişten puan', puan) + kutu('Okunan ciro', P.tlKisa(ciro)) + '</dl>' +
+        (bekleyen.length
+          ? '<div class="list">' + bekleyen.map(function (x) { return fisSatiri(x, true); }).join('') + '</div>'
+          : '<p class="bosluk">Onay bekleyen fiş yok.<br><span style="font-size:.78rem">' +
+            'Sohbette <b>FIS</b> yazıp 📎 ile fiş gönderdiğinizde buraya düşer.</span></p>') +
+        (gecmis.length
+          ? '<h2 style="font-size:1rem;margin:1.1rem 0 .5rem;color:var(--cocoa)">Son kararlar</h2>' +
+            '<div class="tw"><table class="t"><thead><tr><th>Üye</th><th>Tutar</th><th>Durum</th></tr></thead><tbody>' +
+            gecmis.slice(0, 15).map(function (x) {
+              return '<tr><td>' + P.esc(x.uye.ad) + '<br><span style="color:var(--muted);font-size:.74rem">' +
+                x.fis.t + '</span></td><td class="n">' + P.tl(x.fis.tutar) +
+                (x.fis.durum === 'onaylandı' ? '<br><span style="color:var(--ok);font-size:.74rem">+' + x.fis.puan + ' puan</span>' : '') +
+                '</td><td><span class="tag ' + (x.fis.durum === 'onaylandı' ? 'ok' : 'red') + '">' + x.fis.durum + '</span>' +
+                (x.fis.sebep ? '<br><span style="color:var(--muted);font-size:.72rem">' + P.esc(x.fis.sebep) + '</span>' : '') +
+                '</td></tr>';
+            }).join('') + '</tbody></table></div>'
+          : '') +
+        '<button class="btn btn-sec" data-is="fisCsv">Fiş listesini CSV indir</button>';
+    }
+  };
+
+  function fisSatiri(x, karar) {
+    var f = x.fis, u = x.uye;
+    var sv = seviyeOf(u);
+    return '<div class="item" style="align-items:flex-start">' +
+      (f.gorsel ? '<img class="fis-onizleme" src="' + f.gorsel + '" alt="Fiş fotoğrafı">' : '') +
+      '<span><b>' + P.tl(f.tutar) + '</b> <span class="tag bek">+' + (f.puan || 0) + ' puan</span>' +
+      '<span class="sub">' + P.esc(u.ad) + ' · <span class="mono">' + u.kod + '</span> · ' + sv.ad +
+      (sv.carpan > 1 ? ' (×' + sv.carpan + ')' : '') + '</span>' +
+      '<span class="sub">' + f.t + ' · ' + P.esc(f.isletme || '—') +
+      (f.no ? ' · fiş no ' + f.no : '') + ' · güven %' + Math.round((f.guven || 0) * 100) + '</span>' +
+      (f.sebep ? '<span class="sub"><b>' + P.esc(f.sebep) + '</b></span>' : '') +
+      (karar
+        ? '<span class="row" style="margin-top:.5rem;display:flex;gap:.4rem">' +
+          '<button class="btn btn-primary" style="width:auto;min-height:38px;padding:0 .7rem" ' +
+          'data-is="fisOnay" data-kod="' + u.kod + '" data-fis="' + f.id + '">Onayla</button>' +
+          '<button class="btn btn-sec" style="width:auto;min-height:38px;padding:0 .7rem" ' +
+          'data-is="fisRed" data-kod="' + u.kod + '" data-fis="' + f.id + '">Reddet</button>' +
+          '<button class="btn btn-sec" style="width:auto;min-height:38px;padding:0 .7rem" ' +
+          'data-is="uyeKart" data-kod="' + u.kod + '">Üye kartı</button></span>'
+        : '') +
+      '</span></div>';
+  }
+
+  ISLER.fisOnay = function (S, b) { fisKarar(S, b.dataset.kod, b.dataset.fis, true); };
+  ISLER.fisRed = function (S, b) { fisKarar(S, b.dataset.kod, b.dataset.fis, false); };
+
+  function fisKarar(S, kod, fisId, onay) {
+    var gercek = S.code === kod;
+    var u = uyeler(S).filter(function (x) { return x.kod === kod; })[0];
+    if (!u) return;
+    // u.fisler, örnek üyede S.ornek'teki, gerçek üyede S.receipts'teki dizinin
+    // kendisidir; buradaki değişiklik doğrudan duruma yazılır.
+    var f = (u.fisler || []).filter(function (r) { return r.id === fisId; })[0];
+    if (!f || f.durum !== 'bekliyor') return;
+
+    if (!onay) {
+      var sebep = prompt('Reddetme sebebi (müşteriye aynen gider):',
+        'Fiş okunamadı, lütfen fişin tamamının göründüğü daha net bir fotoğraf gönderin.');
+      if (sebep === null) return;
+      f.durum = 'reddedildi'; f.puan = 0;
+      f.sebep = sebep.trim() || 'Personel reddetti.';
+      if (gercek) mesaj(S, P.MSG.receiptRejected(f.sebep), 'Fiş: personel reddetti');
+      P.audit(S, 'fis.red', P.tl(f.tutar) + ' · ' + kod);
+      P.save(S); yenile();
+      return;
+    }
+
+    // Puan, onay anındaki seviyeye göre hesaplanır; fişin kendisi harcamaya
+    // ancak onaylandıktan sonra girer, bu yüzden önce çarpan alınır.
+    var sv = seviyeOf(u);
+    var puan = P.puanFor(f.tutar, sv.carpan);
+    if (!puan) { alert('Bu fişten puan çıkmıyor; tutarı kontrol edin.'); return; }
+    if (!confirm(P.tl(f.tutar) + ' onaylanacak ve ' + u.ad + ' üyesine +' + puan + ' puan eklenecek. Onaylıyor musunuz?')) return;
+    f.durum = 'onaylandı'; f.puan = puan; f.sebep = null;
+
+    if (gercek) {
+      S.stamps += puan;
+      P.event(S, 'Fiş +' + puan + ' (' + P.tl(f.tutar) + ')', 'fis', puan);
+      mesaj(S, P.MSG.receiptApproved({ tutar: f.tutar, puan: puan, toplam: S.stamps, seviye: P.tierForSpend(harcamaOf(u)) }),
+        'Fiş: personel onayladı', 'puan');
+    } else {
+      u.puan += puan;
+      u.kaynak = u.kaynak || {};
+      u.kaynak.fis = u.kaynak.fis || { adet: 0, puan: 0 };
+      u.kaynak.fis.adet++; u.kaynak.fis.puan += puan;
+      u.ledger.unshift({ ts: Date.now(), t: P.today() + ' ' + P.now(), tur: 'fis', puan: puan,
+        not: 'Fiş +' + puan + ' (' + P.tl(f.tutar) + ')' });
+    }
+    P.audit(S, 'fis.onay', P.tl(f.tutar) + ' · +' + puan + ' puan · ' + kod);
+    P.save(S); yenile();
+  }
+
+  ISLER.fisCsv = function (S) {
+    var satir = [['Tarih', 'Üye kodu', 'Ad', 'İşletme', 'Fiş no', 'Tutar (TL)', 'Okuma güveni', 'Durum', 'Puan', 'Not']];
+    tumFisler(S).forEach(function (x) {
+      satir.push([x.fis.t, x.uye.kod, x.uye.ad, x.fis.isletme || '', x.fis.no || '',
+        Number(x.fis.tutar || 0).toFixed(2).replace('.', ','),
+        Math.round((x.fis.guven || 0) * 100) + '%', x.fis.durum, x.fis.puan || 0, x.fis.sebep || '']);
+    });
+    P.audit(S, 'fis.disa_aktarim', satir.length - 1 + ' kayıt'); P.save(S);
+    csvIndir('fisler-' + P.today().replace(/\./g, '-') + '.csv', satir);
+  };
+
   /* ===================== ÖDÜLLER ===================== */
   SAYFA.oduller = {
     baslik: 'Ödüller',
     ciz: function (S) {
+      var liste = (S.rewards || []);
+      function grup(tur, baslik, aciklama) {
+        var g = liste.filter(function (r) { return (r.tur || 'urun') === tur; });
+        if (!g.length) return '';
+        return '<h2 style="font-size:1rem;margin:1.1rem 0 .35rem;color:var(--cocoa)">' + baslik + '</h2>' +
+          '<p class="sub" style="margin:0 0 .5rem;font-size:.78rem;color:var(--muted)">' + aciklama + '</p>' +
+          '<div class="list">' + g.map(function (r) {
+            return '<div class="item"><span><b>' + P.esc(P.rewardLabel(r)) + '</b>' +
+              '<span class="sub">' + r.bedel + ' puan' + (r.tur === 'yuzde' ? ' · tek alışverişte geçerli' : '') + '</span></span>' +
+              '<span class="right"><button class="btn btn-sec" style="width:auto;min-height:38px;padding:0 .7rem" ' +
+              'data-is="odulDurum" data-id="' + r.id + '">' + (r.aktif ? 'Pasife al' : 'Aktif et') + '</button></span></div>';
+          }).join('') + '</div>';
+      }
       return '<div class="uyari">Buradaki değişiklik müşteriye giden mesajlara ve puan sayfasına ' +
           'anında yansır — <b>PUANIM</b> yazdığında yeni katalogla yanıt alır.</div>' +
-        '<div class="list">' + (S.rewards || []).map(function (r) {
-          return '<div class="item"><span><b>' + P.esc(r.ad) + '</b>' +
-            '<span class="sub">' + r.bedel + ' damga</span></span>' +
-            '<span class="right"><button class="btn btn-sec" style="width:auto;min-height:38px;padding:0 .7rem" ' +
-            'data-is="odulDurum" data-id="' + r.id + '">' + (r.aktif ? 'Pasife al' : 'Aktif et') + '</button></span></div>';
-        }).join('') + '</div>' +
+        grup('urun', 'Ürün ödülleri', 'Puan karşılığı verilen ürün.') +
+        grup('yuzde', 'Yüzde indirimi', 'Kademeli indirim: puan arttıkça oran yükselir. ' +
+          'İndirimin tek kaynağı budur — seviye indirim vermez, yalnızca puanı hızlandırır.') +
         '<form class="form" id="yeni"><h3>Yeni ödül</h3>' +
-          '<label>Ödül adı<input id="ad" required maxlength="60" placeholder="Limonata"></label>' +
-          '<label>Damga bedeli<input id="bedel" type="number" min="1" max="1000" required value="8"></label>' +
+          '<label>Tür<select id="tur">' +
+            '<option value="urun">Ürün ödülü</option>' +
+            '<option value="yuzde">Yüzde indirimi</option></select></label>' +
+          '<label id="l-ad">Ödül adı<input id="ad" maxlength="60" placeholder="Limonata"></label>' +
+          '<label id="l-yuzde" hidden>İndirim oranı (%)<input id="yuzde" type="number" min="1" max="50" value="5"></label>' +
+          '<label>Puan bedeli<input id="bedel" type="number" min="1" max="1000" required value="8"></label>' +
           '<button class="btn btn-primary">Ödülü ekle</button></form>';
     },
     bagla: function () {
+      var tur = document.getElementById('tur');
+      function turDegisti() {
+        var yuzdeMi = tur.value === 'yuzde';
+        document.getElementById('l-ad').hidden = yuzdeMi;
+        document.getElementById('l-yuzde').hidden = !yuzdeMi;
+      }
+      tur.addEventListener('change', turDegisti); turDegisti();
       document.getElementById('yeni').addEventListener('submit', function (e) {
         e.preventDefault();
-        var S = P.load(), ad = document.getElementById('ad').value.trim();
+        var S = P.load(), yuzdeMi = tur.value === 'yuzde';
+        var ad = document.getElementById('ad').value.trim();
+        var yuzde = parseInt(document.getElementById('yuzde').value, 10);
         var bedel = parseInt(document.getElementById('bedel').value, 10);
-        if (!ad || !(bedel >= 1 && bedel <= 1000)) return;
-        S.rewards.push({ id: Date.now(), ad: ad, bedel: bedel, aktif: true });
-        P.audit(S, 'odul.eklendi', ad + ' · ' + bedel + ' damga'); P.save(S); yenile();
+        if (!(bedel >= 1 && bedel <= 1000)) return;
+        if (yuzdeMi) {
+          if (!(yuzde >= 1 && yuzde <= 50)) return;
+          ad = '%' + yuzde + ' indirim';
+        } else if (!ad) return;
+        S.rewards.push({ id: Date.now(), ad: ad, bedel: bedel, aktif: true,
+          tur: yuzdeMi ? 'yuzde' : 'urun', yuzde: yuzdeMi ? yuzde : undefined });
+        P.audit(S, 'odul.eklendi', ad + ' · ' + bedel + ' puan'); P.save(S); yenile();
       });
     }
   };
@@ -361,7 +794,7 @@
     var r = S.rewards.filter(function (x) { return String(x.id) === b.dataset.id; })[0];
     if (!r) return;
     r.aktif = !r.aktif;
-    P.audit(S, 'odul.' + (r.aktif ? 'aktif' : 'pasif'), r.ad); P.save(S); yenile();
+    P.audit(S, 'odul.' + (r.aktif ? 'aktif' : 'pasif'), P.rewardLabel(r)); P.save(S); yenile();
   };
 
   /* ===================== KAMPANYALAR ===================== */
@@ -447,7 +880,7 @@
       var bek = (S.claims || []).filter(function (c) { return c.durum === 'bekliyor'; });
       var gecmis = (S.claims || []).filter(function (c) { return c.durum !== 'bekliyor'; });
       return '<div class="uyari">Kayıtlı hesabı olan üyenin etiketli paylaşımı <b>otomatik</b> eşleşir ve ' +
-          'damga eklenir. Buraya yalnızca eşleşmeyenler ve gizli hesaplar düşer.</div>' +
+          'puan eklenir. Buraya yalnızca eşleşmeyenler ve gizli hesaplar düşer.</div>' +
         (bek.length ? '<div class="list">' + bek.map(function (c) {
           return '<div class="item"><span><b>' + P.esc(c.kullanici) + '</b>' +
             '<span class="sub">' + c.tur + ' · ' + c.kaynak + ' · ' + c.tarih + '</span></span>' +
@@ -469,12 +902,12 @@
     if (!c || c.durum !== 'bekliyor') return;
     c.durum = 'onaylandı';
     if (S.status === 'active') {
-      S.stamps += c.damga;
-      P.event(S, 'Bonus +' + c.damga + ' (Instagram ' + c.tur + ')');
-      mesaj(S, 'Instagram ' + (c.tur === 'gönderi' ? 'gönderiniz' : 'hikayeniz') + ' onaylandı, +' + c.damga +
-        ' damga kazandınız! 🎉 Toplam damga: ' + S.stamps + '.', 'Instagram: personel onayladı');
+      S.stamps += c.puan;
+      P.event(S, 'Bonus +' + c.puan + ' (Instagram ' + c.tur + ')', 'instagram', c.puan);
+      mesaj(S, 'Instagram ' + (c.tur === 'gönderi' ? 'gönderiniz' : 'hikayeniz') + ' onaylandı, +' + c.puan +
+        ' puan kazandınız! 🎉 Toplam puan: ' + S.stamps + '.', 'Instagram: personel onayladı');
     }
-    P.audit(S, 'instagram.onay', c.kullanici + ' · +' + c.damga); P.save(S); yenile();
+    P.audit(S, 'instagram.onay', c.kullanici + ' · +' + c.puan); P.save(S); yenile();
   };
   ISLER.igRed = function (S, b) {
     var c = S.claims.filter(function (x) { return String(x.id) === b.dataset.id; })[0];
@@ -498,12 +931,19 @@
         var g = gunFarki(x.tarih);
         return g !== null && g >= bas && g < son;
       }).length;
+      // Fiş sayıları uydurulmaz: üyelerin gerçek fiş kayıtlarından okunur.
+      var fisler = tumFisler(S).filter(function (x) {
+        var g = Math.floor((Date.now() - x.fis.ts) / 86400000);
+        return g >= bas && g < son && x.fis.durum === 'onaylandı';
+      });
       return {
         etiket: etiket,
         uye: yeniUye,
-        damga: hareket.filter(function (h) { return h.tur === 'damga'; }).length + (i === 0 ? bugunDamga(S) : 0),
+        puan: hareket.filter(function (h) { return h.tur === 'puan'; }).length + (i === 0 ? bugunPuan(S) : 0),
         bonus: hareket.filter(function (h) { return h.tur === 'bonus'; }).length,
         odul: hareket.filter(function (h) { return h.tur === 'odul'; }).length + (i === 0 ? (S.redeemed || 0) : 0),
+        fis: fisler.length,
+        ciro: fisler.reduce(function (a, x) { return a + x.fis.tutar; }, 0),
       };
     });
   }
@@ -518,17 +958,22 @@
     baslik: 'Rapor',
     ciz: function (S) {
       var d = donemler(S);
-      var toplam = d.reduce(function (a, r) { return a + r.damga; }, 0);
+      var toplam = d.reduce(function (a, r) { return a + r.puan; }, 0);
       return '<div class="uyari">Örnek veriyle doldurulmuştur; <b>bu cihazdaki gerçek akış</b> ' +
           'sayılara dahildir. Gerçek panelde dönem gün/hafta/ay olarak seçilir.</div>' +
-        '<dl class="tiles">' + kutu('30 günde damga', toplam) +
-          kutu('Verilen ödül', d.reduce(function (a, r) { return a + r.odul; }, 0)) + '</dl>' +
+        '<dl class="tiles">' + kutu('30 günde puan', toplam) +
+          kutu('Verilen ödül', d.reduce(function (a, r) { return a + r.odul; }, 0)) +
+          kutu('Okunan fiş', d.reduce(function (a, r) { return a + r.fis; }, 0)) +
+          kutu('Fiş cirosu', P.tlKisa(d.reduce(function (a, r) { return a + r.ciro; }, 0))) + '</dl>' +
         '<div class="tw"><table class="t"><thead><tr><th>Dönem</th><th class="n">Yeni üye</th>' +
-        '<th class="n">Damga</th><th class="n">Bonus</th><th class="n">Ödül</th></tr></thead><tbody>' +
+        '<th class="n">Puan</th><th class="n">Bonus</th><th class="n">Ödül</th>' +
+        '<th class="n">Fiş</th><th class="n">Ciro</th></tr></thead><tbody>' +
         d.map(function (r) {
-          return '<tr><td>' + r.etiket + '</td><td class="n">' + r.uye + '</td><td class="n">' + r.damga +
-            '</td><td class="n">' + r.bonus + '</td><td class="n">' + r.odul + '</td></tr>';
+          return '<tr><td>' + r.etiket + '</td><td class="n">' + r.uye + '</td><td class="n">' + r.puan +
+            '</td><td class="n">' + r.bonus + '</td><td class="n">' + r.odul +
+            '</td><td class="n">' + r.fis + '</td><td class="n">' + P.tlKisa(r.ciro) + '</td></tr>';
         }).join('') + '</tbody></table></div>' +
+        seviyeDagilimi(S) +
         '<h2 style="font-size:1rem;margin:0 0 .5rem;color:var(--cocoa)">Nokta bazlı okutma</h2>' +
         '<div class="tw"><table class="t"><thead><tr><th>Nokta</th><th class="n">QR</th><th class="n">NFC</th><th class="n">Toplam</th></tr></thead><tbody>' +
         (S.cards || []).map(function (c) {
@@ -539,9 +984,29 @@
         '<button class="btn btn-sec" data-is="raporCsv">Raporu CSV indir</button>';
     }
   };
+  // Seviyelerin dolulukları: kademelerin işe yarayıp yaramadığı buradan görünür.
+  function seviyeDagilimi(S) {
+    var aktif = uyeler(S).filter(function (x) { return x.durum === 'active'; });
+    var sayim = P.TIERS.map(function (t) { return { ad: t.ad, carpan: t.carpan, adet: 0, ciro: 0 }; });
+    aktif.forEach(function (u) {
+      var h = harcamaOf(u), i = 0;
+      P.TIERS.forEach(function (t, n) { if (h >= t.esik) i = n; });
+      sayim[i].adet++; sayim[i].ciro += h;
+    });
+    return '<h2 style="font-size:1rem;margin:1.2rem 0 .5rem;color:var(--cocoa)">Seviye dağılımı</h2>' +
+      '<div class="tw"><table class="t"><thead><tr><th>Seviye</th><th class="n">Üye</th>' +
+      '<th class="n">Puan çarpanı</th><th class="n">Toplam harcama</th></tr></thead><tbody>' +
+      sayim.map(function (r) {
+        return '<tr><td>' + r.ad + '</td><td class="n">' + r.adet + '</td><td class="n">×' + r.carpan +
+          '</td><td class="n">' + P.tlKisa(r.ciro) + '</td></tr>';
+      }).join('') + '</tbody></table></div>';
+  }
+
   ISLER.raporCsv = function (S) {
-    var satir = [['Dönem', 'Yeni üye', 'Damga', 'Instagram bonusu', 'Verilen ödül']];
-    donemler(S).forEach(function (r) { satir.push([r.etiket, r.uye, r.damga, r.bonus, r.odul]); });
+    var satir = [['Dönem', 'Yeni üye', 'Puan', 'Instagram bonusu', 'Verilen ödül', 'Okunan fiş', 'Fiş cirosu (TL)']];
+    donemler(S).forEach(function (r) {
+      satir.push([r.etiket, r.uye, r.puan, r.bonus, r.odul, r.fis, r.ciro.toFixed(2).replace('.', ',')]);
+    });
     satir.push([]);
     satir.push(['Nokta', 'QR okutma', 'NFC okutma', 'Toplam']);
     (S.cards || []).forEach(function (c) { satir.push([c.etiket + ' (' + c.token + ')', c.qr, c.nfc, c.qr + c.nfc]); });

@@ -6,7 +6,7 @@
 .pbar .rol{margin-left:auto;background:rgba(255,255,255,.18);border-radius:999px;padding:.2rem .6rem;
   font-size:.7rem;font-weight:600;letter-spacing:.04em}
 .pbar a{color:#FBF6EE;text-decoration:none;font-size:.78rem;background:rgba(255,255,255,.18);
-  border-radius:8px;padding:.4rem .7rem;display:flex;align-items:center}
+  border-radius:8px;padding:.4rem .7rem;min-height:44px;display:flex;align-items:center}
 
 .pnav{display:flex;gap:.4rem;overflow-x:auto;padding:.5rem .6rem;
   background:var(--marka-lacivert-2);border-bottom:0;flex:0 0 auto;scrollbar-width:none;
@@ -33,11 +33,7 @@
 .item .right{margin-left:auto;text-align:right;font-size:.8rem;white-space:nowrap}
 .item:active{background:var(--sunk)}
 
-.tag{display:inline-block;border-radius:999px;padding:.15em .55em;font-size:.7rem;font-weight:600}
-.tag.ok{background:var(--ok-bg);color:var(--ok)}
-.tag.bek{background:#FAF0D8;color:#8A5D0B}
-.tag.sil{background:#F3EDE9;color:var(--muted)}
-.tag.red{background:#FBE9E7;color:#B3261E}
+/* .tag belirteçleri ortak.css'te: puan sayfası da aynılarını kullanıyor. */
 
 .srch{display:flex;gap:.45rem;margin-bottom:.7rem}
 .srch input{flex:1;padding:.7rem .8rem;border:1px solid var(--line);border-radius:10px;font:inherit;
@@ -45,7 +41,7 @@
 .filtre{display:flex;gap:.35rem;overflow-x:auto;margin-bottom:.8rem;scrollbar-width:none}
 .filtre::-webkit-scrollbar{display:none}
 .filtre button{flex:0 0 auto;border:1px solid var(--line);background:var(--card);color:var(--muted);
-  border-radius:16px;padding:0 .75rem;min-height:34px;font:600 .75rem/1 inherit;cursor:pointer}
+  border-radius:16px;padding:0 .9rem;min-height:44px;font:600 .78rem/1 inherit;cursor:pointer}
 .filtre button.on{background:var(--cocoa);color:#FBF6EE;border-color:var(--cocoa)}
 
 table.t{width:100%;border-collapse:collapse;font-size:.82rem;background:var(--card)}
@@ -80,3 +76,52 @@ ul.isler li{display:flex;align-items:center;gap:.6rem;font-size:.82rem;
   padding:.35rem 0;border-top:1px solid var(--line)}
 ul.isler li:first-child{border-top:0}
 ul.isler .right{margin-left:auto;text-align:right}
+
+/* Tıklanabilir üye satırı: <button> ama görünüşü .item ile aynı. */
+button.item{width:100%;text-align:left;font:inherit;color:inherit;cursor:pointer}
+button.item .ok{margin-left:.35rem;color:var(--muted)}
+
+/* ---- üye kartı (modal) ----
+   Telefonda alttan açılan tam boy sayfa, geniş ekranda ortada pencere. */
+body.kilit{overflow:hidden}
+.kart{position:fixed;inset:0;z-index:50;background:rgba(20,16,14,.5);display:flex;
+  align-items:flex-end;justify-content:center}
+.kart-in{background:var(--bg);width:100%;max-width:640px;border-radius:16px 16px 0 0;
+  display:flex;flex-direction:column;max-height:92vh;max-height:92dvh;overflow:hidden;
+  animation:kartUp .22s ease-out}
+@keyframes kartUp{from{transform:translateY(20px);opacity:.6}to{transform:none;opacity:1}}
+@media(prefers-reduced-motion:reduce){.kart-in{animation:none}}
+@media(min-width:640px){
+  .kart{align-items:center}
+  .kart-in{border-radius:16px;max-height:88vh}
+}
+.kart-bas{display:flex;align-items:center;gap:.7rem;padding:.85rem .9rem;background:var(--marka-koyu);
+  color:#F6F1EA;flex:0 0 auto}
+.kart-bas b{display:block;font-size:1rem;line-height:1.25}
+.kart-bas .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.8rem;opacity:.85}
+.kart-bas .kapat{margin-left:auto;border:0;background:rgba(255,255,255,.14);color:#fff;border-radius:50%;
+  width:38px;height:38px;min-height:38px;font-size:1rem;cursor:pointer;flex:0 0 auto}
+.kart-govde{padding:.9rem .85rem calc(env(safe-area-inset-bottom,0px) + 1rem);overflow:auto;
+  -webkit-overflow-scrolling:touch}
+.kart-govde .sub{font-size:.78rem;color:var(--muted)}
+.kart-alt{margin:0 0 .85rem;font-size:.82rem;line-height:1.6}
+.kart-bas3{font-size:.95rem;color:var(--cocoa);margin:1.1rem 0 .5rem}
+.kart-govde .seviye{margin-bottom:.2rem}
+
+/* Puan dökümü: kaynak · çubuk · puan */
+.dokum{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:.7rem .75rem}
+.dk{display:flex;align-items:center;gap:.65rem;font-size:.84rem;padding:.32rem 0}
+.dk .dk-ad{flex:0 0 40%;line-height:1.25}
+.dk .dk-ad small{display:block;font-size:.7rem;color:var(--muted)}
+.dk .dk-cubuk{flex:1;height:7px;border-radius:999px;background:var(--sunk);overflow:hidden}
+.dk .dk-cubuk i{display:block;height:100%;border-radius:999px;background:var(--brand)}
+.dk b{flex:0 0 auto;font-variant-numeric:tabular-nums;color:var(--ok);min-width:2.6rem;text-align:right}
+.dk.eksi b{color:var(--marka-kirmizi)}
+.dk.eksi .dk-cubuk{background:transparent}
+.dk.toplam{border-top:1px solid var(--line);margin-top:.35rem;padding-top:.5rem;font-weight:700}
+.dk.toplam b{color:var(--cocoa)}
+.dk.toplam .dk-cubuk{background:transparent}
+
+/* Fiş görseli önizlemesi */
+.fis-onizleme{width:72px;height:72px;border-radius:9px;object-fit:cover;background:var(--sunk);
+  border:1px solid var(--line);flex:0 0 auto}
