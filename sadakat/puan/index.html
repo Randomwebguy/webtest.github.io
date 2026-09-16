@@ -25,14 +25,18 @@
         <div class="c" id="code">—</div>
         <small>Kasada bu kodu söylemeniz yeterli</small>
       </div>
-      <h2 style="margin-top:0">Damga durumu</h2>
+      <h2 style="margin-top:0">Puan durumu</h2>
       <p class="small muted" id="sum">—</p>
       <div class="stamps" id="grid"></div>
+      <h2>Harcama ve seviyeniz</h2>
+      <div id="seviye"></div>
       <h2>Ödüller</h2>
       <div id="rewards"></div>
+      <h2>Fişlerim</h2>
+      <div id="fisler"></div>
       <h2>Instagram bonusu</h2>
       <p class="small" id="igline">—</p>
-      <div class="note">Bu sayfa yalnızca görüntülemek içindir; damga ve ödül işlemleri kasada yapılır.
+      <div class="note">Bu sayfa yalnızca görüntülemek içindir; puan ve ödül işlemleri kasada yapılır.
         Bağlantı 7 gün geçerlidir, sonra WhatsApp'a <b>PUANIM</b> yazıp yenisini alırsınız.</div>
       <a class="btn btn-sec" href="../sohbet/">Sohbete dön</a>
     </div>
@@ -51,7 +55,7 @@
   var liste = P.activeRewards(S), next = P.nextReward(S), afford = P.affordable(S);
   var hedef = next ? next.bedel : (liste.length ? liste[liste.length - 1].bedel : 10);
   document.getElementById('sum').textContent =
-    S.stamps + ' damga · ' + (afford.length ? 'ödül almaya hazırsınız' : (hedef - S.stamps) + ' damga sonra ödül') +
+    S.stamps + ' puan · ' + (afford.length ? 'ödül almaya hazırsınız' : (hedef - S.stamps) + ' puan sonra ödül') +
     (S.redeemed ? ' · bugüne kadar kullanılan ödül: ' + S.redeemed : '');
 
   var grid = document.getElementById('grid');
@@ -63,16 +67,46 @@
 
   document.getElementById('rewards').innerHTML = liste.map(function (r) {
     var hazir = S.stamps >= r.bedel;
-    return '<div class="rw' + (hazir ? ' ready' : '') + '"><span>' + P.esc(r.ad) + '</span>' +
-      '<span class="cost">' + (hazir ? 'Hazır 🎁' : (r.bedel - S.stamps) + ' damga kaldı') + '</span></div>';
+    return '<div class="rw' + (hazir ? ' ready' : '') + '"><span>' + P.esc(P.rewardLabel(r)) +
+      (r.tur === 'yuzde' ? ' <small class="muted">tek alışverişte geçerli</small>' : '') + '</span>' +
+      '<span class="cost">' + (hazir ? 'Hazır 🎁' : (r.bedel - S.stamps) + ' puan kaldı') + '</span></div>';
   }).join('');
+
+  /* --- harcama ve seviye: çubuk bir üst eşiğe göre doluyor --- */
+  var sv = P.tierOf(S);
+  var alt = sv.esik, ust = sv.sonraki ? sv.sonraki.esik : Math.max(sv.harcamaTl, sv.esik || 1);
+  var oran = ust > alt ? Math.min(100, Math.round(((sv.harcamaTl - alt) / (ust - alt)) * 100)) : 100;
+  document.getElementById('seviye').innerHTML =
+    '<div class="seviye">' +
+      '<div class="sv-ust"><b>' + sv.ad + '</b>' +
+        '<span class="cost">' + (sv.carpan > 1 ? 'puanlarınız ×' + sv.carpan : 'normal puan') + '</span></div>' +
+      '<div class="sv-cubuk"><i style="width:' + oran + '%"></i></div>' +
+      '<p class="small muted" style="margin:.45rem 0 0">Son 12 ayda harcamanız <b>' + P.tl(sv.harcamaTl) + '</b>' +
+        (sv.sonraki ? ' · <b>' + sv.sonraki.ad + '</b> seviyesine ' + P.tlKisa(sv.kalanTl) + ' kaldı' : ' · en üst seviyedesiniz') +
+        '</p>' +
+      '<p class="small muted" style="margin:.35rem 0 0">Seviye indirim vermez; puanınızın daha hızlı ' +
+        'birikmesini sağlar. İndirim, puanla aldığınız bir ödüldür.</p>' +
+    '</div>';
+
+  /* --- fişler --- */
+  var fisler = S.receipts || [];
+  document.getElementById('fisler').innerHTML = fisler.length
+    ? fisler.slice(0, 8).map(function (r) {
+        var etiket = { 'onaylandı': 'ok', 'bekliyor': 'bek', 'reddedildi': 'red' }[r.durum] || 'bek';
+        return '<div class="rw"><span>' + P.tl(r.tutar) + ' <small class="muted">' + r.t + '</small>' +
+          (r.sebep ? '<br><small class="muted">' + P.esc(r.sebep) + '</small>' : '') + '</span>' +
+          '<span class="cost"><span class="tag ' + etiket + '">' + r.durum + '</span>' +
+          (r.puan && r.durum === 'onaylandı' ? '<br>+' + r.puan + ' puan' : '') + '</span></div>';
+      }).join('')
+    : '<p class="small muted">Henüz fiş yüklemediniz. WhatsApp\'a <b>FIS</b> yazıp fişinizin fotoğrafını ' +
+      'gönderirseniz her ' + P.RECEIPT.tlBasina + ' TL için 1 puan kazanırsınız.</p>';
 
   document.getElementById('igline').innerHTML = S.ig
     ? 'Kayıtlı hesabınız: <b>@' + P.esc(S.ig) + '</b>. ' + P.IG.handle +
       ' hesabımızı etiketlediğiniz hikaye +' + P.IG.story + ', gönderi +' + P.IG.post +
-      ' damga kazandırır (ayda en fazla ' + P.IG.max + ').'
+      ' puan kazandırır (ayda en fazla ' + P.IG.max + ').'
     : 'Instagram hesabınız kayıtlı değil. WhatsApp\'a <b>INSTAGRAM @kullaniciadi</b> yazarsanız ' +
-      P.IG.handle + ' etiketli paylaşımlarınız otomatik damga kazandırır.';
+      P.IG.handle + ' etiketli paylaşımlarınız otomatik puan kazandırır.';
 })();
 </script>
 </body>

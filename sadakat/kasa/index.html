@@ -35,7 +35,7 @@
     <section class="panel" id="card" hidden>
       <div class="kv">
         <span>Üye <b id="c-code">—</b></span>
-        <span>Damga <b id="c-stamps">0</b></span>
+        <span>Puan <b id="c-stamps">0</b></span>
         <span>Kullanılan ödül <b id="c-redeemed">0</b></span>
       </div>
       <div class="kv" style="margin-top:.4rem">
@@ -46,7 +46,7 @@
       <p class="small muted" style="margin:.7rem 0 0">Ödül verirken müşteriden numaranın son iki hanesini
         isteyin: <b>67</b>.</p>
       <div class="row">
-        <button class="btn btn-primary" id="b-stamp">+1 damga</button>
+        <button class="btn btn-primary" id="b-stamp">+1 puan</button>
         <button class="btn btn-sec" id="b-reward">Ödülü ver</button>
         <button class="btn btn-sec" id="b-ig">Instagram paylaşımı geldi</button>
       </div>
@@ -107,22 +107,22 @@
   });
 
   document.getElementById('b-stamp').addEventListener('click', function () {
-    S = P.load(); S.stamps += 1; P.event(S, 'Damga +1'); P.audit(S, 'damga.eklendi', '+1 · ' + S.code); P.save(S);
-    paint(); show('+1 damga eklendi. Yeni bakiye: ' + S.stamps);
-    toChat(P.MSG.points(S), 'Kasa: personel +1 damga işledi', 'puan');
+    S = P.load(); S.stamps += 1; P.event(S, 'Puan +1', 'ziyaret', 1); P.audit(S, 'puan.eklendi', '+1 · ' + S.code); P.save(S);
+    paint(); show('+1 puan eklendi. Yeni bakiye: ' + S.stamps);
+    toChat(P.MSG.points(S), 'Kasa: personel +1 puan işledi', 'puan');
   });
 
   document.getElementById('b-reward').addEventListener('click', function () {
     S = P.load();
-    // Damgası yeten ödüller arasından en pahalısı verilir; kasada mantıklı olan bu.
+    // Puanı yeten ödüller arasından en pahalısı verilir; kasada mantıklı olan bu.
     var uygun = P.affordable(S);
-    if (!uygun.length) { fail('Damga yetmiyor.'); return; }
+    if (!uygun.length) { fail('Puan yetmiyor.'); return; }
     var odul = uygun[uygun.length - 1];
     S.stamps -= odul.bedel; S.redeemed += 1;
-    P.event(S, 'Ödül -' + odul.bedel + ' (' + odul.ad + ')');
-    P.audit(S, 'odul.verildi', odul.ad + ' · ' + S.code); P.save(S);
-    paint(); show(odul.ad + ' verildi. Kalan damga: ' + S.stamps);
-    toChat('Ödülünüz kullanıldı: ' + odul.ad + ' 🎁\nKalan damga: *' + S.stamps + '*',
+    P.event(S, 'Ödül -' + odul.bedel + ' (' + P.rewardLabel(odul) + ')', 'odul', -odul.bedel);
+    P.audit(S, 'odul.verildi', P.rewardLabel(odul) + ' · ' + S.code); P.save(S);
+    paint(); show(P.rewardLabel(odul) + ' verildi. Kalan puan: ' + S.stamps);
+    toChat('Ödülünüz kullanıldı: ' + P.rewardLabel(odul) + ' 🎁\nKalan puan: *' + S.stamps + '*',
       'Kasa: ödül verildi · personel son iki haneyi doğruladı');
   });
 
@@ -131,17 +131,20 @@
     if (!S.ig) {
       S.claims = S.claims || [];
       S.claims.unshift({ id: Date.now(), kullanici: '(eşleşmedi)', tur: 'hikaye', durum: 'bekliyor',
-        damga: P.IG.story, tarih: P.today() + ' ' + P.now(), kaynak: 'ekran görüntüsü' });
+        puan: P.IG.story, tarih: P.today() + ' ' + P.now(), kaynak: 'ekran görüntüsü', gercek: true });
       P.audit(S, 'instagram.talep', 'eşleşmeyen paylaşım kuyruğa alındı'); P.save(S);
       toChat(P.MSG.claimReceived(), 'Instagram: hesap kayıtlı değil, paylaşım personel kontrolüne düştü');
       show('Hesap kayıtlı olmadığı için paylaşım panelde onay bekliyor (Panel → Instagram).');
       return;
     }
     S.stamps += P.IG.story;
-    P.event(S, 'Bonus +' + P.IG.story + ' (Instagram hikayesi)');
+    S.claims = S.claims || [];
+    S.claims.unshift({ id: Date.now(), kullanici: '@' + S.ig, tur: 'hikaye', durum: 'onaylandı',
+      puan: P.IG.story, tarih: P.today() + ' ' + P.now(), kaynak: 'otomatik eşleşme', gercek: true });
+    P.event(S, 'Bonus +' + P.IG.story + ' (Instagram hikayesi)', 'instagram', P.IG.story);
     P.audit(S, 'instagram.otomatik', '@' + S.ig + ' · +' + P.IG.story); P.save(S);
-    paint(); show('Instagram hikayesi eşleşti, +' + P.IG.story + ' damga eklendi.');
-    toChat('Instagram hikayeniz algılandı, +' + P.IG.story + ' damga kazandınız! 🎉 Toplam damga: ' + S.stamps + '.',
+    paint(); show('Instagram hikayesi eşleşti, +' + P.IG.story + ' puan eklendi.');
+    toChat('Instagram hikayeniz algılandı, +' + P.IG.story + ' puan kazandınız! 🎉 Toplam puan: ' + S.stamps + '.',
       'Instagram: @' + S.ig + ' hesabımızı etiketledi · otomatik eşleşti');
   });
 

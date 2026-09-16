@@ -22,9 +22,25 @@
 
   <div class="chips" id="chips"></div>
   <form class="composer" id="form">
+    <button class="clip" id="clip" type="button" aria-label="Fotoğraf ekle">📎</button>
     <textarea id="field" rows="2" placeholder="Mesaj" aria-label="Mesaj"></textarea>
     <button class="send" id="send" type="submit" aria-label="Gönder">➤</button>
   </form>
+</div>
+
+<div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-label="Fotoğraf gönder">
+  <div class="sheet-in" style="position:relative">
+    <button class="kapat" id="sheet-kapat" type="button" aria-label="Kapat">✕</button>
+    <h3>Fiş fotoğrafı gönder</h3>
+    <p class="small muted" id="sheet-not">Fişin fotoğrafını çekin; tutarı okunup puanınıza eklenir.</p>
+    <label class="btn btn-primary" for="dosya" style="display:flex;align-items:center;justify-content:center">
+      Fotoğraf çek veya seç
+    </label>
+    <input id="dosya" type="file" accept="image/*" hidden>
+    <h3 style="margin-top:1rem">Hazır senaryolar</h3>
+    <p class="small muted">Elinizde fiş yoksa akışın her dalını buradan deneyebilirsiniz.</p>
+    <div class="senaryo" id="senaryo"></div>
+  </div>
 </div>
 
 <script src="../ortak.js"></script>
@@ -49,8 +65,10 @@
       thread.appendChild(s); return;
     }
     var d = document.createElement('div');
-    d.className = 'msg ' + entry.d;
-    d.innerHTML = P.fmt(entry.x) + '<span class="t">' + entry.t + (entry.d === 'out' ? ' ✓✓' : '') + '</span>';
+    d.className = 'msg ' + entry.d + (entry.im ? ' foto' : '');
+    d.innerHTML = (entry.im ? '<img src="' + entry.im + '" alt="Gönderilen fotoğraf">' : '') +
+      (entry.x ? (entry.im ? '<span class="cap">' + P.fmt(entry.x) + '</span>' : P.fmt(entry.x)) : '') +
+      '<span class="t">' + entry.t + (entry.d === 'out' ? ' ✓✓' : '') + '</span>';
     if (entry.b === 'onay') d.insertAdjacentHTML('beforeend', '<a class="cta" href="../onay/">Onay sayfasını aç</a>');
     if (entry.b === 'puan') d.insertAdjacentHTML('beforeend', '<a class="cta" href="../puan/">Puan ve ödüllerim</a>');
     thread.appendChild(d);
@@ -63,7 +81,22 @@
     drawChips();
   }
 
-  function say(dir, text, btn) { P.push(S, dir, text, btn); P.save(S); draw(S.log[S.log.length - 1]); scroll(); }
+  function say(dir, text, btn, im) {
+    P.push(S, dir, text, btn);
+    if (im) S.log[S.log.length - 1].im = im;
+    kaydet();
+    draw(S.log[S.log.length - 1]); scroll();
+  }
+
+  // Fotoğraflı bir günlük depolama kotasını doldurabilir; dolarsa görseller
+  // atılıp yeniden denenir, akış kaybolmaz.
+  function kaydet() {
+    P.save(S);
+    if (P.yazildi) return;
+    S.log.forEach(function (l) { if (l.im) { delete l.im; l.x = l.x || '🧾 (fotoğraf)'; } });
+    (S.receipts || []).forEach(function (r) { delete r.gorsel; });
+    P.save(S);
+  }
 
   // Yanıt yazıyor göstergesinden sonra gelir; akış gerçek hissi versin diye.
   function reply(text, btn, delay) {
@@ -81,7 +114,7 @@
     var list = [];
     if (S.status === 'pending') list = ['ONAY', 'VERILERIM', 'SIL'];
     else if (S.status === 'active') {
-      list = ['KODUM', 'PUANIM', 'INSTAGRAM', 'VERILERIM'];
+      list = ['KODUM', 'PUANIM', 'FIS', 'INSTAGRAM', 'VERILERIM'];
       list.push(S.pending === 'marketing' ? 'KAMPANYA EVET' : (S.marketing ? 'DUR' : 'KAMPANYA'));
       list.push(S.pending === 'delete' ? 'SIL EVET' : 'SIL');
       list.push('YARDIM');
@@ -137,6 +170,13 @@
       case 'KODUM': reply(P.MSG.code(S)); break;
       case 'PUANIM': reply(P.MSG.points(S), 'puan'); break;
       case 'INSTAGRAM': reply(P.MSG.instagram(S)); break;
+      case 'FIS': case 'FISIM': case 'FATURA': case 'HARCAMA':
+        // Fotoğraf yalnızca bu pencerede fiş sayılır: sipariş için gönderilen
+        // pasta fotoğrafı okumaya gitmesin, okuma maliyeti de sınırlı kalsın.
+        S.fisArm = Date.now(); P.save(S);
+        reply(P.MSG.receiptInfo(S));
+        setTimeout(function () { say('sys', 'Fişin fotoğrafını göndermek için 📎 düğmesine dokunun.'); }, 1200);
+        break;
       case 'VERILERIM': reply(P.MSG.data(S)); break;
       case 'YARDIM': reply(P.MSG.help()); break;
       case 'ONAY': reply('Üyeliğiniz zaten aktif. Üyelik kodunuz: *' + S.code + '*'); break;
@@ -166,6 +206,123 @@
         // Tanınmayan mesaja bot yanıt vermez: numara sipariş için de kullanılıyor.
         setTimeout(function () { say('sys', 'Tanınmayan mesaja bot yanıt vermez — numara sipariş için de kullanılabilir.'); }, 500);
     }
+  }
+
+  /* --- fotoğraf gönderme ve fiş akışı ------------------------------------- */
+  var sheet = document.getElementById('sheet');
+  var SENARYOLAR = [
+    ['normal',  '🧾', 'Geçerli fiş',            'Bugün kesilmiş Peçko fişi — okunur, puan eklenir'],
+    ['yuksek',  '💳', 'Yüksek tutarlı fiş',     '1.450 TL — otomatik onaylanmaz, personel kontrolüne düşer'],
+    ['tekrar',  '♻️', 'Aynı fişi tekrar gönder', 'Daha önce puanlanmış fiş — ikinci kez kabul edilmez'],
+    ['baska',   '🏬', 'Başka işletmenin fişi',  'Unvan tutmuyor — reddedilir'],
+    ['eski',    '📅', 'Dört günlük fiş',        'Tazelik sınırını aşmış — reddedilir'],
+    ['kucuk',   '☕', '95 TL tutarında fiş',    'Alt sınırın altında — reddedilir'],
+    ['okunmaz', '🌫️', 'Okunaksız fotoğraf',     'Fiş okunamaz — net bir fotoğraf istenir']
+  ];
+
+  function sheetAc() {
+    var armed = fisPenceresi();
+    document.getElementById('sheet-not').textContent = armed
+      ? 'Fişin fotoğrafını gönderin; tutarı okunup puanınıza eklenir.'
+      : 'Fiş penceresi kapalı: şimdi gönderilen fotoğraf Instagram paylaşımı sayılır. ' +
+        'Fiş yüklemek için önce FIS yazın.';
+    document.getElementById('senaryo').innerHTML = SENARYOLAR.map(function (x) {
+      return '<button type="button" data-s="' + x[0] + '"><i>' + x[1] + '</i><b>' + x[2] +
+        '<span>' + x[3] + '</span></b></button>';
+    }).join('');
+    sheet.hidden = false;
+  }
+  function sheetKapat() { sheet.hidden = true; }
+  document.getElementById('clip').addEventListener('click', sheetAc);
+  document.getElementById('sheet-kapat').addEventListener('click', sheetKapat);
+  sheet.addEventListener('click', function (e) { if (e.target === sheet) sheetKapat(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !sheet.hidden) sheetKapat(); });
+  document.getElementById('senaryo').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-s]');
+    if (!b) return;
+    sheetKapat();
+    fotografGonder(null, b.dataset.s);
+  });
+
+  // Gerçek fotoğraf: depolamayı şişirmesin diye küçültülür ve JPEG'e çevrilir.
+  document.getElementById('dosya').addEventListener('change', function () {
+    var f = this.files && this.files[0];
+    this.value = '';
+    if (!f) return;
+    sheetKapat();
+    kucult(f, function (dataUrl) { fotografGonder(dataUrl, 'normal', f.size); });
+  });
+
+  function kucult(file, bitti) {
+    var fr = new FileReader();
+    fr.onload = function () {
+      var img = new Image();
+      img.onload = function () {
+        var en = 360, oran = Math.min(1, en / Math.max(img.width, img.height));
+        var c = document.createElement('canvas');
+        c.width = Math.round(img.width * oran); c.height = Math.round(img.height * oran);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        try { bitti(c.toDataURL('image/jpeg', 0.6)); } catch (e) { bitti(null); }
+      };
+      img.onerror = function () { bitti(null); };
+      img.src = fr.result;
+    };
+    fr.onerror = function () { bitti(null); };
+    fr.readAsDataURL(file);
+  }
+
+  function fisPenceresi() {
+    return S.fisArm && (Date.now() - S.fisArm) < P.RECEIPT.pencere * 60000;
+  }
+
+  function fotografGonder(dataUrl, senaryo, tohum) {
+    // Okuma önce yapılır: hazır senaryolarda balondaki "fotoğraf" okunan fişin
+    // kendisi olsun, gönderilen görselle gelen sonuç birbirini tutsun.
+    var okuma = P.fisOku(S, senaryo, (tohum || Date.now()) % 1000000);
+    var gorsel = dataUrl || P.fisGorseli(okuma);
+
+    if (S.status !== 'active') {
+      say('out', '', null, gorsel);
+      reply(S.status === 'pending' ? P.MSG.consentReminder() : P.MSG.notMember(), S.status === 'pending' ? 'onay' : null);
+      return;
+    }
+    say('out', '', null, gorsel);
+
+    // Fiş penceresi Instagram'ın önünde: FIS yazıldıysa fotoğraf fiştir.
+    if (!fisPenceresi()) {
+      S.claims = S.claims || [];
+      S.claims.unshift({ id: Date.now(), kullanici: S.ig ? '@' + S.ig : '(eşleşmedi)', tur: 'hikaye',
+        durum: 'bekliyor', puan: P.IG.story, tarih: P.today() + ' ' + P.now(), kaynak: 'ekran görüntüsü', gercek: true });
+      P.save(S);
+      say('sys', 'Fiş penceresi kapalı · fotoğraf Instagram paylaşımı sayıldı (Panel → Instagram)');
+      reply(P.MSG.claimReceived());
+      return;
+    }
+
+    reply(P.MSG.receiptReceived(), null, 500);
+    setTimeout(function () {
+      S = P.load();
+      var r = P.fisGonder(S, okuma, gorsel);
+      var fis = r.fis;
+      // sys balonu metni textContent ile basar; kaçış gerekmez.
+      say('sys', 'Fiş okundu · ' + (okuma.okunabilir
+        ? okuma.isletme + ' · ' + P.tl(okuma.tutar) + ' · güven %' + Math.round(okuma.guven * 100)
+        : 'okunamadı'));
+      if (r.durum === 'onaylandı') {
+        P.audit(S, 'fis.onay', P.tl(fis.tutar) + ' · +' + r.puan + ' puan · otomatik');
+        P.save(S); drawChips();
+        reply(P.MSG.receiptApproved({ tutar: fis.tutar, puan: r.puan, toplam: S.stamps, seviye: r.seviye }), 'puan', 700);
+      } else if (r.durum === 'bekliyor') {
+        P.audit(S, 'fis.kontrol', P.tl(fis.tutar) + ' · ' + r.sebep);
+        P.save(S);
+        reply(P.MSG.receiptPending(r.sebep), null, 700);
+        setTimeout(function () { say('sys', 'Fiş panelde onay bekliyor (Panel → Fişler).'); }, 1500);
+      } else {
+        P.audit(S, 'fis.red', (fis.tutar ? P.tl(fis.tutar) + ' · ' : '') + r.sebep);
+        P.save(S);
+        reply(P.MSG.receiptRejected(r.sebep), null, 700);
+      }
+    }, 2100);
   }
 
   document.getElementById('form').addEventListener('submit', function (e) {
@@ -201,7 +358,7 @@
     reply(P.MSG.pendingDeleted(), null, 600);
   }
 
-  // Kasa panelinden gelen damga/ödül mesajları: sohbet açıkken de düşsün.
+  // Kasa panelinden gelen puan/ödül mesajları: sohbet açıkken de düşsün.
   function drain() {
     var fresh = P.load();
     if (!fresh.inbox || !fresh.inbox.length) { S = Object.assign(S, fresh); drawChips(); return; }
