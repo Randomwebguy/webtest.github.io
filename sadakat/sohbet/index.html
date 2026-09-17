@@ -314,7 +314,8 @@
         P.audit(S, 'fis.onay', P.tl(fis.tutar) + ' · alışverişe işlendi · otomatik');
         P.save(S); drawChips();
         reply(P.MSG.receiptApproved({ tutar: fis.tutar, sayildi: r.sayildi,
-          gunSayildi: !!(r.alisveris && r.alisveris.sayildi), tur: r.tur }), 'puan', 700);
+          gunSayildi: !!(r.alisveris && r.alisveris.sayildi), tur: r.tur,
+          turDoldu: !!r.parti }), 'puan', 700);
         // Fiş turu tamamladıysa ödül bildirimi ayrı mesaj olarak gider.
         if (r.parti) {
           var g = S.cuzdan.gecmisTurlar[0];
