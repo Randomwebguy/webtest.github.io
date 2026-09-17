@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#2B2422">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8E%82%3C/text%3E%3C/svg%3E">
-<title>Puanlarım · Peçko Fırın</title>
+<title>Bakiyem · Peçko Fırın</title>
 <link rel="stylesheet" href="../marka.css">
 <link rel="stylesheet" href="../ortak.css">
 </head>
@@ -16,7 +16,7 @@
   <div class="body"><div class="pad" id="pad">
     <div id="yok" hidden>
       <h1>Bağlantı geçerli değil</h1>
-      <p>Bu sayfanın bağlantısı 7 gün geçerlidir. WhatsApp'a <b>PUANIM</b> yazarak yenisini alabilirsiniz.</p>
+      <p>Bu sayfanın bağlantısı 7 gün geçerlidir. WhatsApp'a <b>BAKIYE</b> yazarak yenisini alabilirsiniz.</p>
       <a class="btn btn-sec" href="../sohbet/">Sohbete dön</a>
     </div>
     <div id="var" hidden>
@@ -25,19 +25,23 @@
         <div class="c" id="code">—</div>
         <small>Kasada bu kodu söylemeniz yeterli</small>
       </div>
-      <h2 style="margin-top:0">Puan durumu</h2>
-      <p class="small muted" id="sum">—</p>
+
+      <h2 style="margin-top:0">Hediye bakiyeniz</h2>
+      <div id="bakiye"></div>
+
+      <h2>Alışveriş turunuz</h2>
+      <p class="small muted" id="tur-ozet">—</p>
       <div class="stamps" id="grid"></div>
-      <h2>Harcama ve seviyeniz</h2>
-      <div id="seviye"></div>
-      <h2>Ödüller</h2>
-      <div id="rewards"></div>
-      <h2>Fişlerim</h2>
-      <div id="fisler"></div>
+      <p class="small muted" id="tur-not"></p>
+
+      <h2>Alışverişlerim</h2>
+      <div id="alisverisler"></div>
+
       <h2>Instagram bonusu</h2>
       <p class="small" id="igline">—</p>
-      <div class="note">Bu sayfa yalnızca görüntülemek içindir; puan ve ödül işlemleri kasada yapılır.
-        Bağlantı 7 gün geçerlidir, sonra WhatsApp'a <b>PUANIM</b> yazıp yenisini alırsınız.</div>
+
+      <div class="note">Bu sayfa yalnızca görüntülemek içindir; alışveriş ve bakiye işlemleri kasada yapılır.
+        Bağlantı 7 gün geçerlidir, sonra WhatsApp'a <b>BAKIYE</b> yazıp yenisini alırsınız.</div>
       <a class="btn btn-sec" href="../sohbet/">Sohbete dön</a>
     </div>
   </div></div>
@@ -52,61 +56,63 @@
   document.getElementById('code').textContent = S.code;
   document.getElementById('path').textContent = '/sadakat/uye/' + S.code.toLowerCase().replace(/-/g, '');
 
-  var liste = P.activeRewards(S), next = P.nextReward(S), afford = P.affordable(S);
-  var hedef = next ? next.bedel : (liste.length ? liste[liste.length - 1].bedel : 10);
-  document.getElementById('sum').textContent =
-    S.stamps + ' puan · ' + (afford.length ? 'ödül almaya hazırsınız' : (hedef - S.stamps) + ' puan sonra ödül') +
-    (S.redeemed ? ' · bugüne kadar kullanılan ödül: ' + S.redeemed : '');
+  var tur = P.turDurumu(S), bakiye = P.aktifBakiye(S), ilk = P.ilkSonKullanma(S);
+  var c = P.CUZDAN;
 
+  /* --- bakiye kartı: para, son kullanma ve ne kadarını nerede kullanabileceği --- */
+  document.getElementById('bakiye').innerHTML = bakiye
+    ? '<div class="seviye">' +
+        '<div class="sv-ust"><b>' + P.tlk(bakiye) + '</b>' +
+          '<span class="cost">son kullanma ' + (ilk ? P.gunAdi(P.gunKodu(ilk.sonKullanmaTs)) : '—') + '</span></div>' +
+        '<p class="small muted" style="margin:.5rem 0 0">Bakiyeniz, yapacağınız alışverişin en fazla <b>%' +
+          Math.round(c.tavanOrani * 100) + "</b>'ini karşılar. Örneğin " + P.tlk(bakiye) +
+          ' bakiyenin tamamını kullanmak için en az <b>' + P.tlk(Math.ceil(bakiye / c.tavanOrani)) +
+          '</b> tutarında alışveriş yapmanız gerekir.</p>' +
+        '<p class="small muted" style="margin:.35rem 0 0">Nakde çevrilmez, başka kampanyalarla birleştirilmez.</p>' +
+      '</div>' +
+      (S.cuzdan && S.cuzdan.partiler.filter(function (x) { return x.kalan > 0; }).length > 1
+        ? '<p class="small muted">Bakiyeniz farklı tarihlerde kazanıldı; harcarken önce son kullanma tarihi en yakın olan kullanılır.</p>'
+        : '')
+    : '<p class="small muted">Henüz hediye bakiyeniz yok. <b>' + c.turUzunlugu +
+      ' alışverişinizi tamamladığınızda</b>, bu alışverişlerde ödediğiniz toplam tutarın <b>%' +
+      Math.round(c.oran * 100) + "</b>'i kadar Peçko hediye bakiyesi kazanırsınız.</p>";
+
+  /* --- tur sayacı --- */
+  document.getElementById('tur-ozet').innerHTML =
+    '<b>' + tur.alisveris + '/' + tur.uzunluk + '</b> alışveriş' +
+    (tur.alisveris ? ' · bu turda <b>' + P.tlk(tur.netKurus) + '</b> harcadınız' : '') +
+    ' · tur ' + tur.no;
   var grid = document.getElementById('grid');
-  for (var i = 0; i < hedef; i++) {
-    var c = document.createElement('i');
-    if (i < S.stamps) { c.className = 'on'; c.textContent = '🎂'; }
-    grid.appendChild(c);
+  for (var i = 0; i < tur.uzunluk; i++) {
+    var el = document.createElement('i');
+    if (i < tur.alisveris) { el.className = 'on'; el.textContent = '🛍️'; }
+    grid.appendChild(el);
   }
+  document.getElementById('tur-not').innerHTML = tur.alisveris
+    ? tur.kalan + ' alışveriş sonra, şu anki harcamanızla <b>' + P.tlk(tur.tahminiBakiyeKurus) +
+      '</b> hediye bakiye kazanırsınız. Harcadıkça bu tutar artar.'
+    : 'İlk alışverişinizi yaptığınızda burada ilerlemeniz görünecek.';
 
-  document.getElementById('rewards').innerHTML = liste.map(function (r) {
-    var hazir = S.stamps >= r.bedel;
-    return '<div class="rw' + (hazir ? ' ready' : '') + '"><span>' + P.esc(P.rewardLabel(r)) +
-      (r.tur === 'yuzde' ? ' <small class="muted">tek alışverişte geçerli</small>' : '') + '</span>' +
-      '<span class="cost">' + (hazir ? 'Hazır 🎁' : (r.bedel - S.stamps) + ' puan kaldı') + '</span></div>';
-  }).join('');
-
-  /* --- harcama ve seviye: çubuk bir üst eşiğe göre doluyor --- */
-  var sv = P.tierOf(S);
-  var alt = sv.esik, ust = sv.sonraki ? sv.sonraki.esik : Math.max(sv.harcamaTl, sv.esik || 1);
-  var oran = ust > alt ? Math.min(100, Math.round(((sv.harcamaTl - alt) / (ust - alt)) * 100)) : 100;
-  document.getElementById('seviye').innerHTML =
-    '<div class="seviye">' +
-      '<div class="sv-ust"><b>' + sv.ad + '</b>' +
-        '<span class="cost">' + (sv.carpan > 1 ? 'puanlarınız ×' + sv.carpan : 'normal puan') + '</span></div>' +
-      '<div class="sv-cubuk"><i style="width:' + oran + '%"></i></div>' +
-      '<p class="small muted" style="margin:.45rem 0 0">Son 12 ayda harcamanız <b>' + P.tl(sv.harcamaTl) + '</b>' +
-        (sv.sonraki ? ' · <b>' + sv.sonraki.ad + '</b> seviyesine ' + P.tlKisa(sv.kalanTl) + ' kaldı' : ' · en üst seviyedesiniz') +
-        '</p>' +
-      '<p class="small muted" style="margin:.35rem 0 0">Seviye indirim vermez; puanınızın daha hızlı ' +
-        'birikmesini sağlar. İndirim, puanla aldığınız bir ödüldür.</p>' +
-    '</div>';
-
-  /* --- fişler --- */
-  var fisler = S.receipts || [];
-  document.getElementById('fisler').innerHTML = fisler.length
-    ? fisler.slice(0, 8).map(function (r) {
-        var etiket = { 'onaylandı': 'ok', 'bekliyor': 'bek', 'reddedildi': 'red' }[r.durum] || 'bek';
-        return '<div class="rw"><span>' + P.tl(r.tutar) + ' <small class="muted">' + r.t + '</small>' +
-          (r.sebep ? '<br><small class="muted">' + P.esc(r.sebep) + '</small>' : '') + '</span>' +
-          '<span class="cost"><span class="tag ' + etiket + '">' + r.durum + '</span>' +
-          (r.puan && r.durum === 'onaylandı' ? '<br>+' + r.puan + ' puan' : '') + '</span></div>';
-      }).join('')
-    : '<p class="small muted">Henüz fiş yüklemediniz. WhatsApp\'a <b>FIS</b> yazıp fişinizin fotoğrafını ' +
-      'gönderirseniz her ' + P.RECEIPT.tlBasina + ' TL için 1 puan kazanırsınız.</p>';
+  /* --- alışveriş günleri: aynı gün fişleri tek satırda --- */
+  var gunler = (S.alisverisler || []).slice(0, 10);
+  document.getElementById('alisverisler').innerHTML = gunler.length
+    ? gunler.map(function (a) {
+        return '<div class="rw"><span>' + P.gunAdi(a.gun) +
+          '<br><small class="muted">' + P.tlk(a.netKurus) + ' net' +
+          (a.bakiyeKurus ? ' · bakiye ' + P.tlk(a.bakiyeKurus) : '') +
+          (a.iadeKurus ? ' · iade ' + P.tlk(a.iadeKurus) : '') +
+          (a.fis > 1 ? ' · ' + a.fis + ' fiş birleşti' : '') + '</small></span>' +
+          '<span class="cost">' + (a.sayildi ? '<span class="tag ok">sayıldı</span>' : '<span class="tag bek">sayılmadı</span>') + '</span></div>';
+      }).join('') +
+      '<p class="small muted">Aynı gün içindeki alışverişleriniz tek alışveriş sayılır ve tutarları toplanır.</p>'
+    : '<p class="small muted">Henüz kayıtlı alışverişiniz yok.</p>';
 
   document.getElementById('igline').innerHTML = S.ig
     ? 'Kayıtlı hesabınız: <b>@' + P.esc(S.ig) + '</b>. ' + P.IG.handle +
-      ' hesabımızı etiketlediğiniz hikaye +' + P.IG.story + ', gönderi +' + P.IG.post +
-      ' puan kazandırır (ayda en fazla ' + P.IG.max + ').'
+      ' hesabımızı etiketlediğiniz hikaye ' + P.tl(P.IG.storyTl) + ', gönderi ' + P.tl(P.IG.postTl) +
+      ' hediye bakiye kazandırır (ayda en fazla ' + P.IG.max + ').'
     : 'Instagram hesabınız kayıtlı değil. WhatsApp\'a <b>INSTAGRAM @kullaniciadi</b> yazarsanız ' +
-      P.IG.handle + ' etiketli paylaşımlarınız otomatik puan kazandırır.';
+      P.IG.handle + ' etiketli paylaşımlarınız otomatik hediye bakiye kazandırır.';
 })();
 </script>
 </body>

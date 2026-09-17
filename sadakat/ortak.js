@@ -4,75 +4,283 @@
 (function (w) {
   'use strict';
 
-  var KEY = 'pecko.sadakat.prova.v1';
+  // Model değiştiğinde anahtar da değişir: eski tarayıcı durumu yeni alanlarla
+  // karışıp yarım bir cüzdan üretmesin.
+  var KEY = 'pecko.sadakat.prova.v2';
   var P = {};
 
   P.BUSINESS = 'Peçko Fırın';     // sitedeki ticari ad
-  P.REWARD = { name: '1 adet hediye kahve', cost: 10 };          // öntanımlı katalog
-  // Ödüller iki türlü: ürün ve yüzde indirimi. İndirim yalnızca buradan, yani
-  // puan karşılığı verilir; seviye indirim vermez (bkz. P.TIERS).
+  // Ödül kataloğu ikinci aşama olarak duruyor: işletmenin onayladığı modelde
+  // tek ödül hediye bakiye. Katalog açılırsa müşteri iki ayrı birim (puan ve
+  // bakiye) taşımak zorunda kalır; o yüzden öntanımlı kapalı.
+  P.ODUL_KATALOGU = false;
   P.rewardLabel = function (r) {
     return r.tur === 'yuzde' ? '%' + r.yuzde + ' indirim' : r.ad;
   };
   P.activeRewards = function (s) {
-    var list = (s && s.rewards && s.rewards.length) ? s.rewards : [{ id: 1, ad: P.REWARD.name, bedel: P.REWARD.cost, tur: 'urun', aktif: true }];
+    var list = (s && s.rewards) || [];
     return list.filter(function (r) { return r.aktif; }).sort(function (a, b) { return a.bedel - b.bedel; });
   };
-  P.affordable = function (s) { return P.activeRewards(s).filter(function (r) { return s.stamps >= r.bedel; }); };
-  P.nextReward = function (s) {
-    var list = P.activeRewards(s);
-    for (var i = 0; i < list.length; i++) if (list[i].bedel > s.stamps) return list[i];
-    return null;
-  };
-  P.IG = { handle: '@peckofirin', story: 1, post: 2, max: 2, win: 60 };
+  // Instagram bonusu da bakiye veriyor: müşterinin tek bir cüzdanı olsun.
+  P.IG = { handle: '@peckofirin', storyTl: 15, postTl: 30, max: 2, win: 60 };
 
-  /* --- harcama seviyeleri ---
-     Seviye son 12 ayın onaylı fiş toplamına göre belirlenir ve İNDİRİM DEĞİL,
-     puan çarpanı verir: indirim zaten puanla alınan bir ödül türü olduğu için
-     ikisi üst üste binseydi aynı alışverişe iki indirim yazılırdı. */
-  P.TIER_WINDOW_DAYS = 365;
-  P.TIERS = [
-    { ad: 'Bronz',  esik: 0,     carpan: 1 },
-    { ad: 'Gümüş',  esik: 2500,  carpan: 1.1 },
-    { ad: 'Altın',  esik: 7500,  carpan: 1.25 },
-    { ad: 'Platin', esik: 20000, carpan: 1.5 }
-  ];
-  P.tierForSpend = function (tl) {
-    var cur = P.TIERS[0], next = null, i;
-    for (i = 0; i < P.TIERS.length; i++) if (tl >= P.TIERS[i].esik) cur = P.TIERS[i];
-    for (i = 0; i < P.TIERS.length; i++) if (P.TIERS[i].esik > tl) { next = P.TIERS[i]; break; }
-    return { ad: cur.ad, carpan: cur.carpan, esik: cur.esik, harcamaTl: tl,
-      sonraki: next, kalanTl: next ? Math.max(0, Math.ceil(next.esik - tl)) : 0 };
-  };
-
-  /* --- fiş okuma --- */
-  // tlBasina ziyaret puanıyla aynı kefede: ortalama bir alışveriş bir puan etsin.
-  // Daha düşük verilirse aynı alışveriş hem ziyaretten hem fişten puan kazandırır.
-  P.RECEIPT = { tlBasina: 150, enAz: 150, enFazlaSaat: 48, gunluk: 3, kontrolUstu: 1000, enFazlaPuan: 20, pencere: 60 };
-  P.puanFor = function (tl, carpan) {
-    var ham = Math.floor(tl / P.RECEIPT.tlBasina);
-    return Math.max(0, Math.min(P.RECEIPT.enFazlaPuan, Math.floor(ham * (carpan || 1))));
-  };
+  /* --- fiş okuma ---
+     Fiş, alışverişi sisteme sokmanın yollarından biri: kasadan tutar girişi,
+     fiş fotoğrafı ve (gerçek kurulumda) POS entegrasyonu aynı kaydı üretir. */
+  P.RECEIPT = { enAz: 75, enFazlaSaat: 48, gunluk: 3, kontrolUstu: 1000, pencere: 60 };
   P.tl = function (n) {
     return Number(n || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' TL';
   };
   // Sayaç kutularında kuruş satırı kırar; oralarda tam TL gösterilir.
   P.tlKisa = function (n) { return Math.round(Number(n || 0)).toLocaleString('tr-TR') + ' TL'; };
-  // Bu cihazdaki üyenin dönem harcaması: yalnızca onaylanmış fişler sayılır.
-  P.spendOf = function (s) {
-    var sinir = Date.now() - P.TIER_WINDOW_DAYS * 86400000;
-    return (s.receipts || []).reduce(function (a, r) {
-      return a + (r.durum === 'onaylandı' && r.ts >= sinir ? r.tutar : 0);
+
+  /* ================= HEDİYE BAKİYE =================
+     İşletmenin modeli: müşteri 10 alışverişini tamamlayınca, o 10 alışverişte
+     ödediği NET tutarın %5'i kadar hediye bakiye kazanır. Bakiye 30 gün
+     geçerli ve yeni bir alışverişin en fazla %25'ini karşılayabilir.
+
+     Kurallar ve gerekçeleri — hepsi birlikte çalışır, biri gevşetilince
+     diğerleri açığı kapatmaz:
+
+     1) NET tutar esas alınır. Bakiyeyle ödenen kısım harcamaya sayılmaz;
+        aksi hâlde bakiye kendini besler (bakiyeyle alışveriş → yeni bakiye)
+        ve iskonto bileşik faiz gibi büyür.
+     2) Aynı gündeki fişler TEK alışveriş sayılır. Fişi bölerek sayacı
+        şişirmenin önüne geçen madde budur.
+     3) Alt sınırın altındaki gün alışveriş sayılmaz: 10 tane çay alıp
+        döngü tamamlanamasın.
+     4) Bakiye PARTİLER hâlinde tutulur; her partinin kendi son kullanma
+        tarihi vardır ve harcarken önce en yakın sona erecek parti düşer.
+        Tek bir sayı tutulsaydı hangi kısmın ne zaman öleceği bilinemezdi.
+     5) Tavan BRÜT tutar üzerinden: 2.000 TL'lik fişte en fazla 500 TL.
+        İşletmenin verdiği örnek de bunu söylüyor.
+     6) İade, ait olduğu günün ve döngünün toplamından düşülür; döngü
+        kapanmışsa kazanılan bakiyeden orantılı kesinti yapılır.
+  */
+  P.CUZDAN = {
+    turUzunlugu: 10,        // kaç alışverişte bir bakiye
+    oran: 0.05,             // döngü net harcamasının yüzdesi
+    tavanOrani: 0.25,       // yeni alışverişin en fazla bu kadarı bakiyeyle
+    gecerlilikGun: 30,
+    enAzAlisverisKurus: 7500, // 75 TL — bu tutarın altındaki gün sayılmaz
+    hatirlatmaGun: 7          // son kullanmaya bu kadar kalınca hatırlat
+  };
+
+  P.kurus = function (tl) { return Math.round(Number(tl || 0) * 100); };
+  P.tlk = function (kurus) { return P.tl((kurus || 0) / 100); };
+  P.tlkKisa = function (kurus) { return P.tlKisa((kurus || 0) / 100); };
+  P.gunKodu = function (ts) {
+    var d = new Date(ts == null ? Date.now() : ts);
+    return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+  };
+  P.gunAdi = function (kod) {
+    var p = String(kod).split('-');
+    return p[2] + '.' + p[1] + '.' + p[0];
+  };
+
+  function cuzdan(s) {
+    if (!s.cuzdan) s.cuzdan = { turNo: 1, turAlisveris: 0, turNetKurus: 0, partiler: [], gecmisTurlar: [] };
+    if (!s.alisverisler) s.alisverisler = [];
+    return s.cuzdan;
+  }
+  P.cuzdanKur = cuzdan;
+
+  // Süresi dolan partiler burada kapanır: bakiye her okunduğunda tarih kontrol
+  // edilir, ayrı bir zamanlayıcıya gerek kalmaz.
+  P.bakiyeTemizle = function (s, simdi) {
+    var c = cuzdan(s), t = simdi || Date.now(), dolan = 0;
+    c.partiler.forEach(function (p) {
+      if (p.kalan > 0 && p.sonKullanmaTs <= t) {
+        // Ölen tutar ayrı saklanır: "kazanılan − kullanılan − dolan = açık"
+        // eşitliği panelde kurulabilsin, arada kayıp bir kalem görünmesin.
+        p.dolan = (p.dolan || 0) + p.kalan;
+        dolan += p.kalan; p.kalan = 0; p.doldu = true;
+      }
+    });
+    return dolan;
+  };
+  P.aktifBakiye = function (s, simdi) {
+    var c = cuzdan(s), t = simdi || Date.now();
+    return c.partiler.reduce(function (a, p) {
+      return a + (p.sonKullanmaTs > t ? p.kalan : 0);
     }, 0);
   };
-  P.tierOf = function (s) { return P.tierForSpend(P.spendOf(s)); };
+  // Müşteriye gösterilecek tek tarih: elindeki paranın ilk ölecek diliminin günü.
+  P.ilkSonKullanma = function (s, simdi) {
+    var c = cuzdan(s), t = simdi || Date.now();
+    var acik = c.partiler.filter(function (p) { return p.kalan > 0 && p.sonKullanmaTs > t; })
+      .sort(function (a, b) { return a.sonKullanmaTs - b.sonKullanmaTs; });
+    return acik.length ? acik[0] : null;
+  };
+  /* "11. alışverişten itibaren kullanılabilecek" kuralı.
+     Aynı gün içindeki alışverişler tek alışveriş sayıldığı için, 10. alışverişi
+     tamamlayan günde yapılan ikinci bir alışveriş hâlâ 10. alışverişin parçası;
+     11. alışveriş ancak ertesi bir günde olur. Bu yüzden bugün kazanılan bakiye
+     bugün harcanamaz. Aksi hâlde müşteri ödülü kazandığı alışverişte kullanır ve
+     işletmenin koyduğu kural delinir. */
+  P.bekleyenBakiye = function (s, simdi) {
+    var c = cuzdan(s), t = simdi || Date.now(), bugun = P.gunKodu(t);
+    return c.partiler.reduce(function (a, p) {
+      return a + (p.kalan > 0 && p.sonKullanmaTs > t && P.gunKodu(p.kazanildiTs) === bugun ? p.kalan : 0);
+    }, 0);
+  };
+  P.kullanilabilir = function (s, brutKurus, simdi) {
+    var tavan = Math.floor((brutKurus || 0) * P.CUZDAN.tavanOrani);
+    var hazir = P.aktifBakiye(s, simdi) - P.bekleyenBakiye(s, simdi);
+    return Math.max(0, Math.min(hazir, tavan));
+  };
+
+  // Bakiye harcanırken önce en yakın sona erecek parti düşer: müşterinin
+  // parası boşa gitmesin.
+  function bakiyeDus(s, kurus, simdi) {
+    var c = cuzdan(s), t = simdi || Date.now(), kalan = kurus, kullanilan = [];
+    var bugun = P.gunKodu(t);
+    c.partiler.filter(function (p) {
+      return p.kalan > 0 && p.sonKullanmaTs > t && P.gunKodu(p.kazanildiTs) !== bugun;
+    })
+      .sort(function (a, b) { return a.sonKullanmaTs - b.sonKullanmaTs; })
+      .forEach(function (p) {
+        if (kalan <= 0) return;
+        var d = Math.min(p.kalan, kalan);
+        p.kalan -= d; kalan -= d;
+        kullanilan.push({ parti: p.id, tutar: d });
+      });
+    return { dusen: kurus - kalan, partiler: kullanilan };
+  }
+
+  function turKapat(s, simdi) {
+    var c = cuzdan(s), t = simdi || Date.now();
+    var bakiye = Math.floor(c.turNetKurus * P.CUZDAN.oran);
+    var parti = {
+      id: 'B' + t + '-' + c.turNo, turNo: c.turNo,
+      kazanildiTs: t, sonKullanmaTs: t + P.CUZDAN.gecerlilikGun * 86400000,
+      tutar: bakiye, kalan: bakiye
+    };
+    c.partiler.push(parti);
+    c.gecmisTurlar.unshift({ no: c.turNo, alisveris: c.turAlisveris, netKurus: c.turNetKurus,
+      bakiyeKurus: bakiye, kapanisTs: t, partiId: parti.id });
+    c.turNo += 1; c.turAlisveris = 0; c.turNetKurus = 0;
+    return parti;
+  }
+
+  /* Alışveriş kaydı. Aynı gün ikinci kez gelirse yeni alışveriş açılmaz,
+     o günün kaydına eklenir — fiş bölme buradan engellenir. */
+  P.alisverisEkle = function (s, o) {
+    var c = cuzdan(s), t = o.ts || Date.now(), gun = P.gunKodu(t);
+    var brut = Math.max(0, Math.round(o.brutKurus || 0));
+    var bakiyeKurus = Math.max(0, Math.round(o.bakiyeKurus || 0));
+    var net = Math.max(0, brut - bakiyeKurus);
+
+    var kayit = null, i;
+    for (i = 0; i < s.alisverisler.length; i++) if (s.alisverisler[i].gun === gun) { kayit = s.alisverisler[i]; break; }
+    var yeniGun = !kayit;
+    if (!kayit) {
+      kayit = { id: 'A' + t, gun: gun, ts: t, brutKurus: 0, bakiyeKurus: 0, netKurus: 0,
+        iadeKurus: 0, fis: 0, sayildi: false, turNo: c.turNo, kaynak: [] };
+      s.alisverisler.unshift(kayit);
+    }
+    kayit.brutKurus += brut;
+    kayit.bakiyeKurus += bakiyeKurus;
+    kayit.netKurus += net;
+    kayit.fis += 1;
+    kayit.sonTs = t;
+    if (o.kaynak) kayit.kaynak.push(o.kaynak);
+
+    var kullanim = bakiyeKurus ? bakiyeDus(s, bakiyeKurus, t) : null;
+
+    // Gün alt sınırı geçtiği anda bir alışveriş sayılır; aynı gün ikinci kez sayılmaz.
+    var sayildiSimdi = false;
+    if (!kayit.sayildi && kayit.netKurus >= P.CUZDAN.enAzAlisverisKurus) {
+      kayit.sayildi = true; sayildiSimdi = true;
+      kayit.turNo = c.turNo;
+      c.turAlisveris += 1;
+    }
+    // Net tutar, günün ait olduğu döngüye yazılır.
+    var acikTur = kayit.turNo === c.turNo;
+    if (kayit.sayildi) {
+      if (acikTur) c.turNetKurus += net;
+      else P.kapaliTurGuncelle(s, kayit.turNo, net);
+    }
+
+    var parti = null;
+    if (c.turAlisveris >= P.CUZDAN.turUzunlugu) parti = turKapat(s, t);
+
+    return { alisveris: kayit, yeniGun: yeniGun, sayildi: sayildiSimdi, net: net,
+      bakiyeKullanimi: kullanim, parti: parti, tur: P.turDurumu(s) };
+  };
+
+  // Kapanmış bir döngüye aynı gün içinde ek harcama gelirse ödül yeniden
+  // hesaplanır: müşteriye "bu 10 alışverişin toplamının %5'i" sözü verildi.
+  P.kapaliTurGuncelle = function (s, turNo, netFark) {
+    var c = cuzdan(s);
+    var g = c.gecmisTurlar.filter(function (x) { return x.no === turNo; })[0];
+    if (!g) return null;
+    g.netKurus = Math.max(0, g.netKurus + netFark);
+    var yeni = Math.floor(g.netKurus * P.CUZDAN.oran);
+    var fark = yeni - g.bakiyeKurus;
+    g.bakiyeKurus = yeni;
+    var p = c.partiler.filter(function (x) { return x.id === g.partiId; })[0];
+    if (p) { p.tutar = yeni; p.kalan = Math.max(0, p.kalan + fark); }
+    return { fark: fark, tur: g };
+  };
+
+  /* İade: ait olduğu günün ve döngünün toplamından düşülür. Gün alt sınırın
+     altına inerse o alışveriş sayımdan da düşer. */
+  P.iadeEkle = function (s, o) {
+    var c = cuzdan(s), t = o.ts || Date.now();
+    var tutar = Math.max(0, Math.round(o.tutarKurus || 0));
+    var gun = o.gun || P.gunKodu(t);
+    var kayit = s.alisverisler.filter(function (a) { return a.gun === gun; })[0];
+    if (!kayit) return { ok: false, sebep: 'O güne ait alışveriş bulunamadı.' };
+    var dusulen = Math.min(tutar, kayit.netKurus);
+    if (!dusulen) return { ok: false, sebep: 'Bu günün net tutarı zaten sıfır.' };
+
+    kayit.netKurus -= dusulen;
+    kayit.iadeKurus += dusulen;
+    var sayimDustu = false;
+    if (kayit.sayildi && kayit.netKurus < P.CUZDAN.enAzAlisverisKurus) {
+      kayit.sayildi = false; sayimDustu = true;
+      if (kayit.turNo === c.turNo) c.turAlisveris = Math.max(0, c.turAlisveris - 1);
+    }
+    var bakiyeKesinti = 0;
+    if (kayit.turNo === c.turNo) {
+      c.turNetKurus = Math.max(0, c.turNetKurus - dusulen);
+    } else {
+      var g = P.kapaliTurGuncelle(s, kayit.turNo, -dusulen);
+      if (g) bakiyeKesinti = -g.fark;
+    }
+    return { ok: true, dusulen: dusulen, sayimDustu: sayimDustu, bakiyeKesinti: bakiyeKesinti,
+      alisveris: kayit, tur: P.turDurumu(s) };
+  };
+
+  P.turDurumu = function (s) {
+    var c = cuzdan(s);
+    var kalan = Math.max(0, P.CUZDAN.turUzunlugu - c.turAlisveris);
+    return {
+      no: c.turNo, alisveris: c.turAlisveris, uzunluk: P.CUZDAN.turUzunlugu, kalan: kalan,
+      netKurus: c.turNetKurus,
+      // "Şu an tamamlasan bu kadar" — müşteriyi bir sonraki alışverişe çeken sayı.
+      tahminiBakiyeKurus: Math.floor(c.turNetKurus * P.CUZDAN.oran),
+      ortalamaKurus: c.turAlisveris ? Math.round(c.turNetKurus / c.turAlisveris) : 0
+    };
+  };
+
+  // Instagram paylaşımı da bakiye kazandırır: tek cüzdan, tek dil.
+  P.bakiyeVer = function (s, kurus, sebep, simdi) {
+    var c = cuzdan(s), t = simdi || Date.now();
+    var parti = { id: 'B' + t + '-' + sebep, turNo: null, sebep: sebep,
+      kazanildiTs: t, sonKullanmaTs: t + P.CUZDAN.gecerlilikGun * 86400000,
+      tutar: kurus, kalan: kurus };
+    c.partiler.push(parti);
+    return parti;
+  };
 
   P.LEGAL_VERSION = '1.4';
   P.KVKK_URL = 'https://peckofirin.com.tr/sadakat/kvkk';
   P.PREFILL = function (token) { return 'Merhaba! Sadakat programına katılmak istiyorum. #' + token; };
 
-  var HINT = 'Puanlarınızı ve alabileceğiniz ödülleri aşağıdaki düğmeden görebilirsiniz; istediğiniz zaman PUANIM yazarak bu sayfaya yeniden ulaşabilirsiniz.';
-  var CMDS = 'Komutlar: KODUM · PUANIM · INSTAGRAM · VERILERIM · KAMPANYA · DUR · SIL · YARDIM';
+  var HINT = 'Alışveriş sayınızı ve hediye bakiyenizi aşağıdaki düğmeden görebilirsiniz; istediğiniz zaman BAKIYE yazarak bu sayfaya yeniden ulaşabilirsiniz.';
+  var CMDS = 'Komutlar: KODUM · BAKIYE · FIS · INSTAGRAM · VERILERIM · KAMPANYA · DUR · SIL · YARDIM';
 
   /* --- üye kodu: gerçek 31 sembollü alfabe + ağırlıklı kontrol karakteri --- */
   var ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -103,7 +311,9 @@
   /* --- durum --- */
   function blank() {
     return {
-      token: 'KASA1', code: null, status: 'none', stamps: 0, redeemed: 0,
+      token: 'KASA1', code: null, status: 'none',
+      // Hediye bakiye cüzdanı ve günlük alışveriş kayıtları.
+      cuzdan: null, alisverisler: null,
       marketing: false, ig: null, log: [], events: [], pending: null,
       createdAt: null, activatedAt: null,
       rewards: null, staff: null, shift: null, audit: null, claims: null,
@@ -148,15 +358,30 @@
   // WhatsApp'ın *kalın* işaretlemesi.
   P.fmt = function (s) { return P.esc(s).replace(/\*([^*\n]+)\*/g, '<b>$1</b>'); };
 
-  P.rewardLines = function (s) {
-    var out = [], afford = P.affordable(s), next = P.nextReward(s);
-    if (afford.length) {
-      out.push('Şimdi alabileceğiniz ödüller: ' + afford.map(function (r) {
-        return P.rewardLabel(r) + ' (' + r.bedel + ' puan)';
-      }).join(', ') + ' 🎁 Kasada kodunuzu söylemeniz yeterli.');
+  // Müşteriye giden özet: elindeki para, ne zaman öleceği ve döngünün neresinde
+  // olduğu. Üç satırdan fazlası WhatsApp'ta okunmuyor.
+  P.cuzdanSatirlari = function (s) {
+    var bakiye = P.aktifBakiye(s), tur = P.turDurumu(s), ilk = P.ilkSonKullanma(s);
+    var out = [];
+    if (bakiye > 0) {
+      var bekleyen = P.bekleyenBakiye(s);
+      out.push('💳 Peçko hediye bakiyeniz: *' + P.tlk(bakiye) + '*' +
+        (ilk ? '\nSon kullanma: ' + P.gunAdi(P.gunKodu(ilk.sonKullanmaTs)) : ''));
+      out.push('Bakiyeniz, yapacağınız alışverişin en fazla %' + Math.round(P.CUZDAN.tavanOrani * 100) +
+        "'ini karşılar; kasada kodunuzu söylemeniz yeterli." +
+        (bekleyen ? '\n\nBugün kazandığınız ' + P.tlk(bekleyen) +
+          ' bir sonraki alışverişinizden itibaren kullanılabilir.' : ''));
     }
-    if (next) out.push('Sonraki ödül: ' + P.rewardLabel(next) + ' – ' + (next.bedel - s.stamps) + ' puan kaldı.');
-    return out.join('\n');
+    if (tur.alisveris >= P.CUZDAN.turUzunlugu) {
+      out.push('Bu turdaki ' + P.CUZDAN.turUzunlugu + ' alışverişinizi tamamladınız.');
+    } else {
+      out.push('🛍️ Alışveriş: *' + tur.alisveris + '/' + tur.uzunluk + '*' +
+        (tur.alisveris ? ' · bu turda ' + P.tlk(tur.netKurus) + ' harcadınız' : '') +
+        '\n' + tur.kalan + ' alışveriş sonra ' +
+        (tur.alisveris ? 'şu anki harcamanızla *' + P.tlk(tur.tahminiBakiyeKurus) + '* hediye bakiye kazanırsınız.'
+                       : 'harcamanızın %' + Math.round(P.CUZDAN.oran * 100) + "'i kadar hediye bakiye kazanırsınız."));
+    }
+    return out.join('\n\n');
   };
 
   /* --- mesajlar: src/messages.js ile birebir --- */
@@ -175,26 +400,71 @@
         'Kasada bu kodu söylemeniz yeterli.\n\n' + HINT + '\n\n' + CMDS;
     },
     code: function (s) {
-      return 'Üyelik kodunuz: *' + s.code + '*\nPuan: ' + s.stamps + '\n\n' + HINT + '\n\n' + CMDS;
+      var tur = P.turDurumu(s);
+      return 'Üyelik kodunuz: *' + s.code + '*\n' +
+        'Alışveriş: ' + tur.alisveris + '/' + tur.uzunluk + ' · hediye bakiye: ' + P.tlk(P.aktifBakiye(s)) +
+        '\n\n' + HINT + '\n\n' + CMDS;
     },
     points: function (s) {
-      var sv = P.tierOf(s);
-      return 'Puan durumunuz: *' + s.stamps + '*\n' + P.rewardLines(s) +
-        (s.redeemed ? '\nBugüne kadar kullandığınız ödül: ' + s.redeemed : '') +
-        '\n\nSeviyeniz: *' + sv.ad + '*' + (sv.carpan > 1 ? ' (puanlarınız ×' + sv.carpan + ')' : '') +
-        ' · son 12 ayda harcamanız ' + P.tl(sv.harcamaTl) +
-        (sv.sonraki ? '\n' + sv.sonraki.ad + ' seviyesine ' + P.tlKisa(sv.kalanTl) + ' harcama kaldı.' : '') +
-        '\n\nTüm ödüller ve ayrıntılar için aşağıdaki düğmeye dokunun (bağlantı 7 gün geçerli). ' +
-        'Fişinizle puan kazanmak için FIS, Instagram paylaşımıyla ek puan için INSTAGRAM yazın.';
+      return P.cuzdanSatirlari(s) +
+        '\n\nAyrıntılar için aşağıdaki düğmeye dokunun (bağlantı 7 gün geçerli). ' +
+        'Alışverişinizi fişle kaydetmek için FIS, Instagram paylaşımıyla ek bakiye için INSTAGRAM yazın.';
+    },
+
+    // 10. alışveriş tamamlandı: işletmenin özellikle istediği bildirim.
+    cycleComplete: function (o) {
+      return '🎉 *Tebrikler!* ' + P.CUZDAN.turUzunlugu + ' alışverişinizi tamamladınız.\n\n' +
+        'Bu turda toplam *' + P.tlk(o.netKurus) + '* harcadınız; %' + Math.round(P.CUZDAN.oran * 100) +
+        "'i kadar, yani *" + P.tlk(o.bakiyeKurus) + '* Peçko hediye bakiyesi hesabınıza tanımlandı.\n\n' +
+        'Son kullanma: *' + P.gunAdi(P.gunKodu(o.sonKullanmaTs)) + '* (' + P.CUZDAN.gecerlilikGun + ' gün)\n' +
+        'Bir sonraki alışverişinizden itibaren kullanabilirsiniz; bakiyeniz alışverişin en fazla %' +
+        Math.round(P.CUZDAN.tavanOrani * 100) + "'ini karşılar.\n\n" +
+        'Yeni turunuz başladı: 0/' + P.CUZDAN.turUzunlugu;
+    },
+
+    // Kasada alışveriş işlendi. sayildi=false iki ayrı nedenden olabilir ve
+    // müşteriye doğru nedeni söylemek gerekir: aynı gün zaten sayılmışsa
+    // "eklenmedi" demek haksızlık gibi okunur.
+    purchase: function (o) {
+      var tur = o.tur;
+      var neden = o.sayildi
+        ? '\n\n🛍️ Alışveriş: *' + tur.alisveris + '/' + tur.uzunluk + '*' +
+          (tur.kalan ? ' · ' + tur.kalan + ' alışveriş sonra hediye bakiye' : '')
+        : o.gunSayildi
+          ? '\n\nBugün zaten bir alışverişiniz vardı; bu tutar o güne eklendi. ' +
+            'Alışveriş sayınız: *' + tur.alisveris + '/' + tur.uzunluk + '*'
+          : '\n\nGünlük toplamınız ' + P.tlk(P.CUZDAN.enAzAlisverisKurus) +
+            ' alt sınırına ulaşmadığı için henüz alışveriş sayılmadı; ' +
+            'aynı gün içindeki alışverişleriniz toplanır.';
+      return '✅ Alışverişiniz kaydedildi: *' + P.tlk(o.brutKurus) + '*' +
+        (o.bakiyeKurus ? '\nHediye bakiyeden düşülen: *' + P.tlk(o.bakiyeKurus) + '* · ödediğiniz: ' + P.tlk(o.netKurus) : '') +
+        neden +
+        '\n\nKalan hediye bakiyeniz: ' + P.tlk(o.bakiye);
+    },
+
+    // Bakiyenin süresi dolmadan hatırlatma.
+    expiryWarning: function (o) {
+      return '⏳ *' + P.tlk(o.tutar) + '* hediye bakiyenizin son kullanma tarihi *' +
+        P.gunAdi(P.gunKodu(o.sonKullanmaTs)) + '*.\n\n' +
+        'Kullanmak için kasada üyelik kodunuzu söylemeniz yeterli; alışverişinizin en fazla %' +
+        Math.round(P.CUZDAN.tavanOrani * 100) + "'ini karşılar.";
+    },
+
+    refund: function (o) {
+      return 'İadeniz işlendi: *' + P.tlk(o.dusulen) + '*.' +
+        (o.sayimDustu ? '\n\nİade sonrası o günün tutarı alt sınırın altına indiği için alışveriş sayınız bir azaldı.' : '') +
+        (o.bakiyeKesinti ? '\nKazanılmış bakiyeden ' + P.tlk(o.bakiyeKesinti) + ' düşüldü.' : '') +
+        '\n\n' + P.cuzdanSatirlari(o.s);
     },
     instagram: function (s) {
       return '📸 *Instagram bonusu*\n\n' +
         (s.ig ? 'Kayıtlı Instagram hesabınız: *@' + s.ig + '* (değiştirmek için INSTAGRAM @yenihesap yazın)\n\n'
               : 'Instagram hesabınız henüz kayıtlı değil. Kaydetmek için *INSTAGRAM @kullaniciadi* yazın; böylece paylaşımlarınız otomatik eşleşir.\n\n') +
         "Instagram'da " + P.IG.handle + ' hesabımızı etiketleyerek bir *hikaye* paylaşın (hikaye paylaşamıyorsanız gönderi de olur). ' +
-        (s.ig ? 'Hesabınız herkese açıksa paylaşımınız otomatik algılanır ve puanınız eklenir. Hesabınız gizliyse veya birkaç dakika içinde mesaj gelmezse ekran görüntüsünü ' + P.IG.win + ' dakika içinde bu sohbete gönderin.'
+        (s.ig ? 'Hesabınız herkese açıksa paylaşımınız otomatik algılanır ve bakiyeniz eklenir. Hesabınız gizliyse veya birkaç dakika içinde mesaj gelmezse ekran görüntüsünü ' + P.IG.win + ' dakika içinde bu sohbete gönderin.'
               : 'Ardından paylaşımın ekran görüntüsünü ' + P.IG.win + ' dakika içinde bu sohbete gönderin; gönderi bağlantısını yapıştırmanız da yeterli.') +
-        '\n\nHikaye +' + P.IG.story + ', gönderi +' + P.IG.post + ' puan (ayda en fazla ' + P.IG.max + ' paylaşım).';
+        '\n\nHikaye +' + P.tl(P.IG.storyTl) + ', gönderi +' + P.tl(P.IG.postTl) +
+        ' hediye bakiye (ayda en fazla ' + P.IG.max + ' paylaşım, ' + P.CUZDAN.gecerlilikGun + ' gün geçerli).';
     },
     data: function (s) {
       var t = (s.createdAt || P.today() + ' ' + P.now());
@@ -207,16 +477,18 @@
         'Durum: ' + ({ pending: 'Onay bekliyor', active: 'Aktif', deleted: 'Silindi' }[s.status] || s.status),
         'Kayıt: ' + t + ' · Onay: ' + (s.activatedAt || '—') + ' · Son işlem: ' + P.today() + ' ' + P.now(),
         'Kayıt noktası: ' + s.token,
-        'Puan: ' + s.stamps + ' · Kullanılan ödül: ' + s.redeemed,
-        'Seviye: ' + P.tierOf(s).ad + ' · Son 12 ayda harcama: ' + P.tl(P.spendOf(s)),
-        'Yüklenen fiş: ' + (s.receipts || []).length,
+        'Alışveriş: ' + P.turDurumu(s).alisveris + '/' + P.CUZDAN.turUzunlugu +
+          ' (tur ' + P.turDurumu(s).no + ') · tamamlanan tur: ' + (s.cuzdan ? s.cuzdan.gecmisTurlar.length : 0),
+        'Hediye bakiye: ' + P.tlk(P.aktifBakiye(s)) +
+          (P.ilkSonKullanma(s) ? ' · son kullanma ' + P.gunAdi(P.gunKodu(P.ilkSonKullanma(s).sonKullanmaTs)) : ''),
+        'Kayıtlı alışveriş günü: ' + (s.alisverisler || []).length + ' · yüklenen fiş: ' + (s.receipts || []).length,
         'Kampanya izni: ' + (s.marketing ? 'Var' : 'Yok'), '',
         '*Rıza kayıtları*:'
       ];
       if (s.activatedAt) lines.push('• ' + s.activatedAt + ' – KVKK / üyelik: verildi (sürüm ' + P.LEGAL_VERSION + ', web)');
       if (s.marketing) lines.push('• ' + (s.activatedAt || t) + ' – Kampanya izni: verildi (sürüm ' + P.LEGAL_VERSION + ', web)');
       if (!s.activatedAt && !s.marketing) lines.push('• Henüz rıza kaydı yok.');
-      lines.push('', '*Puan hareketleri*:');
+      lines.push('', '*Hesap hareketleri*:');
       lines = lines.concat(s.events.length ? s.events : ['• Henüz hareket yok.']);
       lines.push('', 'Aydınlatma metni: ' + P.KVKK_URL,
         'Silmek için SIL, kampanya izni için KAMPANYA veya DUR yazabilirsiniz.');
@@ -233,10 +505,10 @@
     marketingAlreadyOn: function () { return 'Kampanya mesajı izniniz zaten açık. Kapatmak için DUR yazabilirsiniz.'; },
     optedOut: function () {
       return 'Kampanya ve tanıtım mesajları için izniniz geri alındı; artık bu tür mesaj almayacaksınız. ' +
-        'Üyeliğiniz ve puanlarınız korunuyor. Yeniden izin vermek isterseniz KAMPANYA yazabilirsiniz.';
+        'Üyeliğiniz ve hediye bakiyeniz korunuyor. Yeniden izin vermek isterseniz KAMPANYA yazabilirsiniz.';
     },
     deletePrompt: function () {
-      return 'Üyeliğinizi ve tüm kişisel verilerinizi kalıcı olarak silmek üzeresiniz; puanlarınız da silinir ve bu işlem geri alınamaz.\n\n' +
+      return 'Üyeliğinizi ve tüm kişisel verilerinizi kalıcı olarak silmek üzeresiniz; hediye bakiyeniz ve alışveriş sayınız da silinir, bu işlem geri alınamaz.\n\n' +
         'Onaylamak için *SIL EVET* yazın. Vazgeçmek için hiçbir şey yapmanız gerekmez.';
     },
     deleted: function () {
@@ -251,26 +523,33 @@
     },
     instagramLinked: function (u) {
       return 'Instagram hesabınız *@' + u + '* olarak kaydedildi. ✅ Artık ' + P.IG.handle +
-        ' hesabımızı etiketlediğiniz hikaye ve gönderiler otomatik olarak puan kazandırır.';
+        ' hesabımızı etiketlediğiniz hikaye ve gönderiler otomatik olarak hediye bakiye kazandırır.';
     },
     receiptInfo: function (s) {
-      var c = P.RECEIPT, sv = P.tierOf(s);
-      return '🧾 *Fişinizle puan kazanın*\n\n' +
+      var c = P.RECEIPT, tur = P.turDurumu(s);
+      return '🧾 *Fişinizle alışverişinizi kaydedin*\n\n' +
         'Mağazamızdan aldığınız fişin fotoğrafını ' + c.pencere + ' dakika içinde bu sohbete gönderin; ' +
-        'tutarı okunup puanınıza eklenir.\n\n' +
-        'Her *' + c.tlBasina + ' TL* için 1 puan. En az ' + c.enAz + ' TL tutarındaki fişler geçerlidir; ' +
-        'fiş en fazla ' + c.enFazlaSaat + ' saatlik olmalı ve günde en çok ' + c.gunluk + ' fiş yükleyebilirsiniz.\n\n' +
-        'Seviyeniz: *' + sv.ad + '*' + (sv.carpan > 1 ? ' (puanlarınız ×' + sv.carpan + ')' : '') +
-        (sv.sonraki ? '\n' + sv.sonraki.ad + ' seviyesine ' + P.tlKisa(sv.kalanTl) + ' harcama kaldı.' : '') +
-        '\n\nFişin tamamı görünsün, düz ve net çekin. Aynı fiş yalnızca bir kez puan kazandırır.';
+        'tutarı okunup alışveriş hesabınıza işlenir.\n\n' +
+        'En az ' + P.tl(c.enAz) + ' tutarındaki fişler geçerlidir; fiş en fazla ' + c.enFazlaSaat +
+        ' saatlik olmalı ve günde en çok ' + c.gunluk + ' fiş yükleyebilirsiniz. ' +
+        'Aynı gün içindeki fişleriniz *tek alışveriş* sayılır ve tutarları toplanır.\n\n' +
+        '🛍️ Alışveriş: *' + tur.alisveris + '/' + tur.uzunluk + '*' +
+        (tur.kalan ? ' · ' + tur.kalan + ' alışveriş sonra hediye bakiye' : '') +
+        '\n\nFişin tamamı görünsün, düz ve net çekin. Aynı fiş yalnızca bir kez işlenir.';
     },
     receiptReceived: function () {
       return 'Fişinizi aldık, okunuyor… 🧾 Sonucu birazdan buradan bildireceğiz.';
     },
     receiptApproved: function (o) {
-      return 'Fişiniz onaylandı! 🧾 ' + P.tl(o.tutar) + ' harcamanız için *+' + o.puan + ' puan* eklendi.\n' +
-        'Toplam puanınız: *' + o.toplam + '*.' +
-        (o.seviye && o.seviye.sonraki ? '\n\n' + o.seviye.sonraki.ad + ' seviyesine ' + P.tlKisa(o.seviye.kalanTl) + ' kaldı.' : '');
+      var tur = o.tur;
+      return 'Fişiniz onaylandı! 🧾 *' + P.tl(o.tutar) + '* alışveriş hesabınıza işlendi.' +
+        (o.sayildi
+          ? '\n\n🛍️ Alışveriş: *' + tur.alisveris + '/' + tur.uzunluk + '*' +
+            (tur.kalan ? ' · ' + tur.kalan + ' alışveriş sonra hediye bakiye' : '')
+          : o.gunSayildi
+            ? '\n\nBugün zaten bir alışverişiniz vardı; bu fişin tutarı o güne eklendi, alışveriş sayınız değişmedi.'
+            : '\n\nGünlük toplamınız ' + P.tlk(P.CUZDAN.enAzAlisverisKurus) +
+              ' alt sınırına ulaşmadığı için henüz alışveriş sayılmadı.');
     },
     receiptPending: function (sebep) {
       return 'Fişinizi aldık. ' + sebep + ' Ekibimiz kontrol ettikten sonra puanınız eklenecek ve size haber vereceğiz. 🧾';
@@ -283,10 +562,10 @@
     },
     help: function () {
       return P.BUSINESS + ' sadakat asistanı 🤖\n\n' +
-        'KODUM – üyelik kodunuz ve puan durumunuz\n' +
-        'PUANIM – puan durumunuz ve alabileceğiniz ödüller\n' +
-        'FIS – fişinizin fotoğrafını gönderip harcamanızdan puan kazanın\n' +
-        'INSTAGRAM – paylaşım yaparak ek puan kazanın\n' +
+        'KODUM – üyelik kodunuz ve alışveriş sayınız\n' +
+        'BAKIYE – hediye bakiyeniz, son kullanma tarihi ve alışveriş sayınız\n' +
+        'FIS – fişinizin fotoğrafını gönderip alışverişinizi kaydedin\n' +
+        'INSTAGRAM – paylaşım yaparak ek hediye bakiye kazanın\n' +
         'VERILERIM – hakkınızda tuttuğumuz veriler (KVKK)\n' +
         'KAMPANYA – kampanya mesajlarına izin verin\n' +
         'DUR – kampanya mesajlarını durdurun\n' +
@@ -343,7 +622,7 @@
           ? { okunabilir: true, tutar: onceki.tutar, no: onceki.no, ts: onceki.fisTs, isletme: 'PEÇKO FIRIN', guven: 0.95 }
           : { okunabilir: true, tutar: 120, no: no, ts: simdi, isletme: 'PEÇKO FIRIN', guven: 0.95 };
       case 'kucuk':
-        return { okunabilir: true, tutar: 95, no: no, ts: simdi, isletme: 'PEÇKO FIRIN', guven: 0.95 };
+        return { okunabilir: true, tutar: 48, no: no, ts: simdi, isletme: 'PEÇKO FIRIN', guven: 0.95 };
       default:
         // Fotoğraftan türetilen, makul aralıkta bir tutar. Alt sınırın üstünde
         // kalır: "geçerli fiş" senaryosu bazen reddedilirse akış anlaşılmaz olur.
@@ -417,36 +696,31 @@
     if (yas > c.enFazlaSaat) return red('Fiş ' + Math.round(yas) + ' saatlik; en fazla ' + c.enFazlaSaat + ' saatlik fiş kabul ediliyor.');
     if (yas < -2) return red('Fişin tarihi ileri tarihli görünüyor.');
     // 4) Alt sınır
-    if (okuma.tutar < c.enAz) return red('Puan için en az ' + c.enAz + ' TL tutarında fiş gerekiyor.');
+    if (okuma.tutar < c.enAz) return red('Alışveriş kaydı için en az ' + P.tl(c.enAz) + ' tutarında fiş gerekiyor.');
     // 5) Tekillik — parmak izi fiş no + tarih + tutardan çıkar
     kayit.iz = kayit.no + '|' + Math.floor(kayit.fisTs / 60000) + '|' + Math.round(kayit.tutar * 100);
     var tekrar = s.receipts.some(function (r) { return r.id !== kayit.id && r.iz === kayit.iz && r.durum !== 'reddedildi'; });
-    if (tekrar) return red('Bu fiş daha önce yüklenmiş. Her fiş yalnızca bir kez puan kazandırır.');
-    // 6) Puan
-    var sv = P.tierForSpend(P.spendOf(s));
-    var puan = P.puanFor(okuma.tutar, sv.carpan);
-    if (!puan) return red('Bu fiş puan sınırının altında kaldı (her ' + c.tlBasina + ' TL için 1 puan).');
-    kayit.puan = puan;
-    // 7) Kontrole düşenler
+    if (tekrar) return red('Bu fiş daha önce yüklenmiş. Her fiş yalnızca bir kez işlenir.');
+    // 6) Kontrole düşenler
     if (okuma.tutar > c.kontrolUstu) return beklet('Tutar yüksek olduğu için personel kontrolüne alındı.');
     if (okuma.guven < 0.75) return beklet('Okuma netleşmediği için personel kontrolüne alındı.');
 
     return P.fisOnayla(s, kayit);
   };
 
-  // Onay: fişi onaylı yapar, puanı ekler ve deftere yazar. Onaylanmış fiş iki kez
-  // puan vermesin diye durum kontrolü burada.
+  // Onay: fiş alışveriş hesabına işlenir. Aynı gün ikinci fiş yeni alışveriş
+  // açmaz, o günün tutarına eklenir — fiş bölme buradan engellenir.
   P.fisOnayla = function (s, kayit) {
     if (kayit.durum === 'onaylandı') return { durum: 'zaten', fis: kayit };
-    if (!kayit.puan) {
-      var sv0 = P.tierForSpend(P.spendOf(s));
-      kayit.puan = P.puanFor(kayit.tutar, sv0.carpan);
-    }
     kayit.durum = 'onaylandı';
-    s.stamps += kayit.puan;
-    P.event(s, 'Fiş +' + kayit.puan + ' (' + P.tl(kayit.tutar) + ')', 'fis', kayit.puan);
-    var sv = P.tierForSpend(P.spendOf(s));
-    return { durum: 'onaylandı', puan: kayit.puan, seviye: sv, fis: kayit };
+    var r = P.alisverisEkle(s, { brutKurus: P.kurus(kayit.tutar), ts: kayit.fisTs || kayit.ts,
+      kaynak: 'fis:' + kayit.id });
+    kayit.alisverisId = r.alisveris.id;
+    kayit.sayildi = r.sayildi;
+    P.event(s, 'Alışveriş ' + P.tl(kayit.tutar) + ' (fiş)' + (r.sayildi ? ' · ' + r.tur.alisveris + '/' + r.tur.uzunluk : ' · aynı güne eklendi'),
+      'fis', 0);
+    return { durum: 'onaylandı', fis: kayit, sayildi: r.sayildi, alisveris: r.alisveris,
+      tur: r.tur, parti: r.parti };
   };
 
   P.audit = function (s, islem, detay) {

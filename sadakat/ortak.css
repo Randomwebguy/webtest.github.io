@@ -9,6 +9,9 @@
   --wa-ink:#1E2A25; --wa-meta:#7C8B84; --wa-link:#1B7EC2;
 }
 *{box-sizing:border-box}
+/* display:flex/grid tanımlı bir elemanda [hidden] sessizce etkisiz kalır;
+   gizlediğini sandığın kutu yer kaplamaya devam eder. Tek yerden kapatılır. */
+[hidden]{display:none!important}
 html,body{height:100%}
 body{margin:0;background:var(--wa-bed);color:var(--ink);
   font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;

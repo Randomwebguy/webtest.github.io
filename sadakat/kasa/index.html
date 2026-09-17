@@ -15,6 +15,22 @@
 .codein input{flex:1;padding:.7rem .8rem;border:1px solid var(--line);border-radius:10px;font:inherit;
   font-size:17px;min-height:50px;letter-spacing:.06em;text-transform:uppercase;background:var(--card);color:var(--ink)}
 .codein .btn{width:auto;flex:0 0 auto;padding:.7rem 1.1rem}
+.tutar{display:grid;gap:.5rem;margin-top:.8rem}
+.tutar label{font-size:.82rem;font-weight:600;color:var(--cocoa)}
+/* Yalnızca tutar alanı: seçim kutusuna uygularsa kutu tüm satırı kaplar. */
+.tutar input[type=number]{width:100%;padding:.7rem .8rem;border:1px solid var(--line);border-radius:10px;
+  font:inherit;font-size:17px;min-height:50px;background:var(--card);color:var(--ink);text-align:right;
+  font-variant-numeric:tabular-nums}
+/* Bakiye kutusu kasadaki en kritik bilgi: ne kadarı kullanılabilir. */
+.bkutu{border:1px solid var(--line);border-radius:12px;padding:.75rem .8rem;background:var(--card);
+  margin-top:.7rem}
+.bkutu .buyuk{font-size:1.5rem;font-weight:700;color:var(--cocoa);font-variant-numeric:tabular-nums}
+.bkutu .satir{display:flex;align-items:baseline;gap:.5rem;font-size:.84rem;color:var(--muted)}
+.bkutu .satir b{margin-left:auto;color:var(--ink);font-variant-numeric:tabular-nums}
+.bkutu.yok{opacity:.55}
+.sayac{display:flex;gap:.25rem;margin:.55rem 0 .2rem}
+.sayac i{flex:1;height:9px;border-radius:999px;background:var(--line);font-style:normal}
+.sayac i.on{background:var(--brand)}
 </style>
 </head>
 <body>
@@ -35,22 +51,37 @@
     <section class="panel" id="card" hidden>
       <div class="kv">
         <span>Üye <b id="c-code">—</b></span>
-        <span>Puan <b id="c-stamps">0</b></span>
-        <span>Kullanılan ödül <b id="c-redeemed">0</b></span>
-      </div>
-      <div class="kv" style="margin-top:.4rem">
         <span>Telefon <b>+90 532 *** ** 67</b></span>
         <span>Instagram <b id="c-ig">—</b></span>
-        <span>Kampanya izni <b id="c-mkt">yok</b></span>
       </div>
-      <p class="small muted" style="margin:.7rem 0 0">Ödül verirken müşteriden numaranın son iki hanesini
-        isteyin: <b>67</b>.</p>
+
+      <div class="sayac" id="c-sayac" aria-hidden="true"></div>
+      <p class="small muted" style="margin:.1rem 0 0">Alışveriş <b id="c-tur">0/10</b> ·
+        bu turda <b id="c-turnet">0,00 TL</b><span id="c-tahmin"></span></p>
+
+      <div class="bkutu" id="c-bkutu">
+        <div class="satir">Hediye bakiye <b id="c-bakiye">0,00 TL</b></div>
+        <div class="satir" id="c-skt-satir" hidden>Son kullanma <b id="c-skt">—</b></div>
+        <div class="satir" id="c-kullanim-satir" hidden>Bu fişte kullanılabilir <b id="c-kullanim">0,00 TL</b></div>
+      </div>
+
+      <form class="tutar" id="satis">
+        <label for="tutar">Alışveriş tutarı (TL)</label>
+        <input id="tutar" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0,00">
+        <label class="check" id="bakiye-kutu" hidden>
+          <input type="checkbox" id="bakiye-kullan">
+          <span id="bakiye-etiket">Hediye bakiyeden düş</span>
+        </label>
+        <button class="btn btn-primary" type="submit">Alışverişi kaydet</button>
+      </form>
+
       <div class="row">
-        <button class="btn btn-primary" id="b-stamp">+1 puan</button>
-        <button class="btn btn-sec" id="b-reward">Ödülü ver</button>
+        <button class="btn btn-sec" id="b-iade">İade işle</button>
         <button class="btn btn-sec" id="b-ig">Instagram paylaşımı geldi</button>
       </div>
       <p class="ok" id="ok" hidden></p>
+      <p class="small muted" style="margin:.7rem 0 0">Ödeme alırken müşteriden numaranın son iki hanesini
+        isteyin: <b>67</b>.</p>
     </section>
 
     <div class="note" style="margin-top:1rem">
@@ -79,20 +110,52 @@
 
   function paint() {
     card.hidden = false;
+    var tur = P.turDurumu(S), bakiye = P.aktifBakiye(S), ilk = P.ilkSonKullanma(S);
     document.getElementById('c-code').textContent = S.code;
-    document.getElementById('c-stamps').textContent = S.stamps;
-    document.getElementById('c-redeemed').textContent = S.redeemed;
     document.getElementById('c-ig').textContent = S.ig ? '@' + S.ig : '—';
-    document.getElementById('c-mkt').textContent = S.marketing ? 'var' : 'yok';
-    document.getElementById('b-reward').disabled = !P.affordable(S).length;
+
+    // Tur sayacı: 10 kutucuk, dolu olanlar tamamlanan alışverişler.
+    var kutular = '';
+    for (var i = 0; i < tur.uzunluk; i++) kutular += '<i class="' + (i < tur.alisveris ? 'on' : '') + '"></i>';
+    document.getElementById('c-sayac').innerHTML = kutular;
+    document.getElementById('c-tur').textContent = tur.alisveris + '/' + tur.uzunluk;
+    document.getElementById('c-turnet').textContent = P.tlk(tur.netKurus);
+    document.getElementById('c-tahmin').innerHTML = tur.alisveris
+      ? ' · şimdi tamamlansa <b>' + P.tlk(tur.tahminiBakiyeKurus) + '</b> bakiye'
+      : '';
+
+    document.getElementById('c-bakiye').textContent = P.tlk(bakiye);
+    document.getElementById('c-bkutu').classList.toggle('yok', !bakiye);
+    var sktSatir = document.getElementById('c-skt-satir');
+    sktSatir.hidden = !ilk;
+    if (ilk) document.getElementById('c-skt').textContent = P.gunAdi(P.gunKodu(ilk.sonKullanmaTs));
+    tutarDegisti();
   }
 
+  // Tutar değiştikçe kullanılabilir bakiye yeniden hesaplanır: tavan brüt
+  // tutarın %25'i olduğu için personel ne kadar düşebileceğini anında görür.
+  function tutarDegisti() {
+    var brut = P.kurus(document.getElementById('tutar').value);
+    var kullanilabilir = P.kullanilabilir(S, brut);
+    var satir = document.getElementById('c-kullanim-satir');
+    var kutu = document.getElementById('bakiye-kutu');
+    satir.hidden = !(brut > 0 && P.aktifBakiye(S) > 0);
+    document.getElementById('c-kullanim').textContent = P.tlk(kullanilabilir);
+    kutu.hidden = !kullanilabilir;
+    document.getElementById('bakiye-etiket').textContent =
+      'Hediye bakiyeden ' + P.tlk(kullanilabilir) + ' düş (tavan: tutarın %' +
+      Math.round(P.CUZDAN.tavanOrani * 100) + "'i)";
+    if (!kullanilabilir) document.getElementById('bakiye-kullan').checked = false;
+  }
+  document.getElementById('tutar').addEventListener('input', tutarDegisti);
+
   // Kasa panelinden gönderilen mesajlar sohbetin kutusuna bırakılır.
+  // DİKKAT: burada P.load() çağrılmaz. Çağrılsaydı, çağıranın o ana kadar
+  // yaptığı cüzdan değişiklikleri (alışveriş, bakiye düşümü) sessizce
+  // kaybolurdu. Kaydetme sorumluluğu çağıranda.
   function toChat(text, sys, btn) {
-    S = P.load();
     S.inbox = S.inbox || [];
     S.inbox.push({ text: text, sys: sys || null, btn: btn || null });
-    P.save(S);
   }
 
   document.getElementById('lookup').addEventListener('submit', function (e) {
@@ -106,46 +169,84 @@
     paint();
   });
 
-  document.getElementById('b-stamp').addEventListener('click', function () {
-    S = P.load(); S.stamps += 1; P.event(S, 'Puan +1', 'ziyaret', 1); P.audit(S, 'puan.eklendi', '+1 · ' + S.code); P.save(S);
-    paint(); show('+1 puan eklendi. Yeni bakiye: ' + S.stamps);
-    toChat(P.MSG.points(S), 'Kasa: personel +1 puan işledi', 'puan');
-  });
-
-  document.getElementById('b-reward').addEventListener('click', function () {
+  /* --- alışveriş kaydı --- */
+  document.getElementById('satis').addEventListener('submit', function (e) {
+    e.preventDefault();
     S = P.load();
-    // Puanı yeten ödüller arasından en pahalısı verilir; kasada mantıklı olan bu.
-    var uygun = P.affordable(S);
-    if (!uygun.length) { fail('Puan yetmiyor.'); return; }
-    var odul = uygun[uygun.length - 1];
-    S.stamps -= odul.bedel; S.redeemed += 1;
-    P.event(S, 'Ödül -' + odul.bedel + ' (' + P.rewardLabel(odul) + ')', 'odul', -odul.bedel);
-    P.audit(S, 'odul.verildi', P.rewardLabel(odul) + ' · ' + S.code); P.save(S);
-    paint(); show(P.rewardLabel(odul) + ' verildi. Kalan puan: ' + S.stamps);
-    toChat('Ödülünüz kullanıldı: ' + P.rewardLabel(odul) + ' 🎁\nKalan puan: *' + S.stamps + '*',
-      'Kasa: ödül verildi · personel son iki haneyi doğruladı');
+    var brut = P.kurus(document.getElementById('tutar').value);
+    if (!brut) { fail('Alışveriş tutarını yazın.'); return; }
+    var kullan = document.getElementById('bakiye-kullan').checked ? P.kullanilabilir(S, brut) : 0;
+
+    var r = P.alisverisEkle(S, { brutKurus: brut, bakiyeKurus: kullan, kaynak: 'kasa' });
+    P.event(S, 'Alışveriş ' + P.tlk(brut) + (kullan ? ' (bakiye ' + P.tlk(kullan) + ')' : '') +
+      (r.sayildi ? ' · ' + r.tur.alisveris + '/' + r.tur.uzunluk : ' · aynı güne eklendi'), 'alisveris', 0);
+    P.audit(S, 'alisveris.kaydedildi', P.tlk(brut) + (kullan ? ' · bakiye ' + P.tlk(kullan) : '') + ' · ' + S.code);
+
+    toChat(P.MSG.purchase({ brutKurus: brut, bakiyeKurus: kullan, netKurus: brut - kullan,
+      sayildi: r.sayildi, gunSayildi: r.alisveris.sayildi, tur: r.tur,
+      bakiye: P.aktifBakiye(S) }), 'Kasa: alışveriş işlendi');
+
+    // Tur kapandıysa ödül bildirimi ayrı mesaj olarak gider: müşteri bunu
+    // ekran görüntüsü alıp saklayabilsin.
+    if (r.parti) {
+      var g = S.cuzdan.gecmisTurlar[0];
+      P.audit(S, 'tur.tamamlandi', 'tur ' + g.no + ' · ' + P.tlk(g.netKurus) + ' → ' + P.tlk(g.bakiyeKurus));
+      toChat(P.MSG.cycleComplete({ netKurus: g.netKurus, bakiyeKurus: g.bakiyeKurus,
+        sonKullanmaTs: r.parti.sonKullanmaTs }), 'Tur tamamlandı · hediye bakiye tanımlandı', 'puan');
+    }
+    P.save(S);
+    S = P.load();
+    document.getElementById('tutar').value = '';
+    document.getElementById('bakiye-kullan').checked = false;
+    paint();
+    show(P.tlk(brut) + ' kaydedildi' + (kullan ? ', bakiyeden ' + P.tlk(kullan) + ' düşüldü' : '') + '.' +
+      (r.parti ? ' 🎉 Tur tamamlandı: ' + P.tlk(r.parti.tutar) + ' hediye bakiye tanımlandı.' : ''));
   });
 
+  /* --- iade --- */
+  document.getElementById('b-iade').addEventListener('click', function () {
+    S = P.load();
+    var girilen = prompt('İade tutarı (TL). Bugünkü alışverişten düşülür:', '');
+    if (girilen === null) return;
+    var kurus = P.kurus(girilen);
+    if (!kurus) { fail('Geçerli bir iade tutarı yazın.'); return; }
+    var r = P.iadeEkle(S, { tutarKurus: kurus });
+    if (!r.ok) { fail(r.sebep); return; }
+    P.event(S, 'İade -' + P.tlk(r.dusulen) + (r.sayimDustu ? ' · alışveriş sayısı düştü' : ''), 'iade', 0);
+    P.audit(S, 'iade.islendi', P.tlk(r.dusulen) + ' · ' + S.code);
+    toChat(P.MSG.refund({ dusulen: r.dusulen, sayimDustu: r.sayimDustu,
+      bakiyeKesinti: r.bakiyeKesinti, s: S }), 'Kasa: iade işlendi');
+    P.save(S); S = P.load(); paint();
+    show(P.tlk(r.dusulen) + ' iade işlendi.' + (r.sayimDustu ? ' Gün alt sınırın altına indiği için alışveriş sayısı bir azaldı.' : '') +
+      (r.bakiyeKesinti ? ' Kazanılmış bakiyeden ' + P.tlk(r.bakiyeKesinti) + ' düşüldü.' : ''));
+  });
+
+  /* --- Instagram bonusu: bakiye verir --- */
   document.getElementById('b-ig').addEventListener('click', function () {
     S = P.load();
+    var kurus = P.kurus(P.IG.storyTl);
     if (!S.ig) {
       S.claims = S.claims || [];
       S.claims.unshift({ id: Date.now(), kullanici: '(eşleşmedi)', tur: 'hikaye', durum: 'bekliyor',
-        puan: P.IG.story, tarih: P.today() + ' ' + P.now(), kaynak: 'ekran görüntüsü', gercek: true });
-      P.audit(S, 'instagram.talep', 'eşleşmeyen paylaşım kuyruğa alındı'); P.save(S);
+        bakiyeKurus: kurus, tarih: P.today() + ' ' + P.now(), kaynak: 'ekran görüntüsü', gercek: true });
+      P.audit(S, 'instagram.talep', 'eşleşmeyen paylaşım kuyruğa alındı');
       toChat(P.MSG.claimReceived(), 'Instagram: hesap kayıtlı değil, paylaşım personel kontrolüne düştü');
+      P.save(S);
       show('Hesap kayıtlı olmadığı için paylaşım panelde onay bekliyor (Panel → Instagram).');
       return;
     }
-    S.stamps += P.IG.story;
+    var parti = P.bakiyeVer(S, kurus, 'instagram');
     S.claims = S.claims || [];
     S.claims.unshift({ id: Date.now(), kullanici: '@' + S.ig, tur: 'hikaye', durum: 'onaylandı',
-      puan: P.IG.story, tarih: P.today() + ' ' + P.now(), kaynak: 'otomatik eşleşme', gercek: true });
-    P.event(S, 'Bonus +' + P.IG.story + ' (Instagram hikayesi)', 'instagram', P.IG.story);
-    P.audit(S, 'instagram.otomatik', '@' + S.ig + ' · +' + P.IG.story); P.save(S);
-    paint(); show('Instagram hikayesi eşleşti, +' + P.IG.story + ' puan eklendi.');
-    toChat('Instagram hikayeniz algılandı, +' + P.IG.story + ' puan kazandınız! 🎉 Toplam puan: ' + S.stamps + '.',
+      bakiyeKurus: kurus, tarih: P.today() + ' ' + P.now(), kaynak: 'otomatik eşleşme', gercek: true });
+    P.event(S, 'Instagram bonusu +' + P.tlk(kurus), 'instagram', 0);
+    P.audit(S, 'instagram.otomatik', '@' + S.ig + ' · +' + P.tlk(kurus));
+    show('Instagram hikayesi eşleşti, ' + P.tlk(kurus) + ' hediye bakiye eklendi.');
+    toChat('Instagram hikayeniz algılandı, *' + P.tlk(kurus) + '* hediye bakiye kazandınız! 🎉\n' +
+      'Toplam bakiyeniz: *' + P.tlk(P.aktifBakiye(S)) + '* · son kullanma ' +
+      P.gunAdi(P.gunKodu(parti.sonKullanmaTs)),
       'Instagram: @' + S.ig + ' hesabımızı etiketledi · otomatik eşleşti');
+    P.save(S); paint();
   });
 
   document.getElementById('reset').addEventListener('click', function () {

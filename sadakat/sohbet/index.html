@@ -32,7 +32,7 @@
   <div class="sheet-in" style="position:relative">
     <button class="kapat" id="sheet-kapat" type="button" aria-label="Kapat">✕</button>
     <h3>Fiş fotoğrafı gönder</h3>
-    <p class="small muted" id="sheet-not">Fişin fotoğrafını çekin; tutarı okunup puanınıza eklenir.</p>
+    <p class="small muted" id="sheet-not">Fişin fotoğrafını çekin; tutarı okunup alışveriş hesabınıza işlenir.</p>
     <label class="btn btn-primary" for="dosya" style="display:flex;align-items:center;justify-content:center">
       Fotoğraf çek veya seç
     </label>
@@ -70,7 +70,7 @@
       (entry.x ? (entry.im ? '<span class="cap">' + P.fmt(entry.x) + '</span>' : P.fmt(entry.x)) : '') +
       '<span class="t">' + entry.t + (entry.d === 'out' ? ' ✓✓' : '') + '</span>';
     if (entry.b === 'onay') d.insertAdjacentHTML('beforeend', '<a class="cta" href="../onay/">Onay sayfasını aç</a>');
-    if (entry.b === 'puan') d.insertAdjacentHTML('beforeend', '<a class="cta" href="../puan/">Puan ve ödüllerim</a>');
+    if (entry.b === 'puan') d.insertAdjacentHTML('beforeend', '<a class="cta" href="../puan/">Bakiyem ve alışverişlerim</a>');
     thread.appendChild(d);
   }
 
@@ -114,7 +114,7 @@
     var list = [];
     if (S.status === 'pending') list = ['ONAY', 'VERILERIM', 'SIL'];
     else if (S.status === 'active') {
-      list = ['KODUM', 'PUANIM', 'FIS', 'INSTAGRAM', 'VERILERIM'];
+      list = ['KODUM', 'BAKIYE', 'FIS', 'INSTAGRAM', 'VERILERIM'];
       list.push(S.pending === 'marketing' ? 'KAMPANYA EVET' : (S.marketing ? 'DUR' : 'KAMPANYA'));
       list.push(S.pending === 'delete' ? 'SIL EVET' : 'SIL');
       list.push('YARDIM');
@@ -137,7 +137,7 @@
     if (S.status === 'none' || S.status === 'deleted') {
       say('out', text);
       // Numaraya kod atanır ama onay verilene kadar aktif olmaz.
-      S.code = P.newCode(); S.status = 'pending'; S.stamps = 0; S.redeemed = 0;
+      S.code = P.newCode(); S.status = 'pending'; S.cuzdan = null; S.alisverisler = null;
       S.marketing = false; S.ig = null; S.events = []; S.pending = null;
       S.createdAt = P.today() + ' ' + P.now(); S.activatedAt = null;
       P.save(S); drawChips();
@@ -168,7 +168,8 @@
 
     switch (cmd) {
       case 'KODUM': reply(P.MSG.code(S)); break;
-      case 'PUANIM': reply(P.MSG.points(S), 'puan'); break;
+      case 'BAKIYE': case 'BAKIYEM': case 'PUANIM': case 'PUAN':
+        reply(P.MSG.points(S), 'puan'); break;
       case 'INSTAGRAM': reply(P.MSG.instagram(S)); break;
       case 'FIS': case 'FISIM': case 'FATURA': case 'HARCAMA':
         // Fotoğraf yalnızca bu pencerede fiş sayılır: sipariş için gönderilen
@@ -211,19 +212,19 @@
   /* --- fotoğraf gönderme ve fiş akışı ------------------------------------- */
   var sheet = document.getElementById('sheet');
   var SENARYOLAR = [
-    ['normal',  '🧾', 'Geçerli fiş',            'Bugün kesilmiş Peçko fişi — okunur, puan eklenir'],
+    ['normal',  '🧾', 'Geçerli fiş',            'Bugün kesilmiş Peçko fişi — okunur, alışverişe işlenir'],
     ['yuksek',  '💳', 'Yüksek tutarlı fiş',     '1.450 TL — otomatik onaylanmaz, personel kontrolüne düşer'],
-    ['tekrar',  '♻️', 'Aynı fişi tekrar gönder', 'Daha önce puanlanmış fiş — ikinci kez kabul edilmez'],
+    ['tekrar',  '♻️', 'Aynı fişi tekrar gönder', 'Daha önce işlenmiş fiş — ikinci kez kabul edilmez'],
     ['baska',   '🏬', 'Başka işletmenin fişi',  'Unvan tutmuyor — reddedilir'],
     ['eski',    '📅', 'Dört günlük fiş',        'Tazelik sınırını aşmış — reddedilir'],
-    ['kucuk',   '☕', '95 TL tutarında fiş',    'Alt sınırın altında — reddedilir'],
+    ['kucuk',   '☕', '48 TL tutarında fiş',    'Alt sınırın altında — reddedilir'],
     ['okunmaz', '🌫️', 'Okunaksız fotoğraf',     'Fiş okunamaz — net bir fotoğraf istenir']
   ];
 
   function sheetAc() {
     var armed = fisPenceresi();
     document.getElementById('sheet-not').textContent = armed
-      ? 'Fişin fotoğrafını gönderin; tutarı okunup puanınıza eklenir.'
+      ? 'Fişin fotoğrafını gönderin; tutarı okunup alışveriş hesabınıza işlenir.'
       : 'Fiş penceresi kapalı: şimdi gönderilen fotoğraf Instagram paylaşımı sayılır. ' +
         'Fiş yüklemek için önce FIS yazın.';
     document.getElementById('senaryo').innerHTML = SENARYOLAR.map(function (x) {
@@ -292,7 +293,8 @@
     if (!fisPenceresi()) {
       S.claims = S.claims || [];
       S.claims.unshift({ id: Date.now(), kullanici: S.ig ? '@' + S.ig : '(eşleşmedi)', tur: 'hikaye',
-        durum: 'bekliyor', puan: P.IG.story, tarih: P.today() + ' ' + P.now(), kaynak: 'ekran görüntüsü', gercek: true });
+        durum: 'bekliyor', bakiyeKurus: P.kurus(P.IG.storyTl), tarih: P.today() + ' ' + P.now(),
+        kaynak: 'ekran görüntüsü', gercek: true });
       P.save(S);
       say('sys', 'Fiş penceresi kapalı · fotoğraf Instagram paylaşımı sayıldı (Panel → Instagram)');
       reply(P.MSG.claimReceived());
@@ -309,9 +311,19 @@
         ? okuma.isletme + ' · ' + P.tl(okuma.tutar) + ' · güven %' + Math.round(okuma.guven * 100)
         : 'okunamadı'));
       if (r.durum === 'onaylandı') {
-        P.audit(S, 'fis.onay', P.tl(fis.tutar) + ' · +' + r.puan + ' puan · otomatik');
+        P.audit(S, 'fis.onay', P.tl(fis.tutar) + ' · alışverişe işlendi · otomatik');
         P.save(S); drawChips();
-        reply(P.MSG.receiptApproved({ tutar: fis.tutar, puan: r.puan, toplam: S.stamps, seviye: r.seviye }), 'puan', 700);
+        reply(P.MSG.receiptApproved({ tutar: fis.tutar, sayildi: r.sayildi,
+          gunSayildi: !!(r.alisveris && r.alisveris.sayildi), tur: r.tur }), 'puan', 700);
+        // Fiş turu tamamladıysa ödül bildirimi ayrı mesaj olarak gider.
+        if (r.parti) {
+          var g = S.cuzdan.gecmisTurlar[0];
+          setTimeout(function () {
+            say('sys', 'Tur tamamlandı · hediye bakiye tanımlandı');
+            reply(P.MSG.cycleComplete({ netKurus: g.netKurus, bakiyeKurus: g.bakiyeKurus,
+              sonKullanmaTs: r.parti.sonKullanmaTs }), 'puan', 600);
+          }, 1800);
+        }
       } else if (r.durum === 'bekliyor') {
         P.audit(S, 'fis.kontrol', P.tl(fis.tutar) + ' · ' + r.sebep);
         P.save(S);
@@ -358,7 +370,7 @@
     reply(P.MSG.pendingDeleted(), null, 600);
   }
 
-  // Kasa panelinden gelen puan/ödül mesajları: sohbet açıkken de düşsün.
+  // Kasa panelinden gelen alışveriş/bakiye mesajları: sohbet açıkken de düşsün.
   function drain() {
     var fresh = P.load();
     if (!fresh.inbox || !fresh.inbox.length) { S = Object.assign(S, fresh); drawChips(); return; }
