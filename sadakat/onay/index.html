@@ -85,6 +85,10 @@
   var P = window.PECKO, S = P.load();
   var form = document.getElementById('form'), yok = document.getElementById('yok');
   var q = new URLSearchParams(location.search);
+  // "Bu telefonla başka biri üye olacak": provada cihaz tek üyelik tutuyor,
+  // yeni katılım öncekini sıfırlar. Gerçek sistemde her numaranın kendi
+  // üyeliği var, böyle bir sınır yok.
+  if (q.get('yeni') === '1' && S.status === 'active') { P.reset(); S = P.load(); }
   if (q.get('nokta')) { S.token = q.get('nokta').toUpperCase().slice(0, 20); P.save(S); }
 
   // İki giriş kapısı var:
