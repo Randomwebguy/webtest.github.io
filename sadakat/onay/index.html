@@ -22,9 +22,9 @@
     </div>
 
     <form id="form" hidden>
-      <h1>Üyeliğinizi başlatın</h1>
-      <p>Üyelik kodunuz <b id="code">—</b>. Aşağıdaki onayları verdiğinizde kodunuz aktif olur ve
-        kasada kullanmaya başlayabilirsiniz.</p>
+      <h1 id="baslik">Katılım şartları</h1>
+      <p id="giris">Aşağıdaki onayları verdiğinizde WhatsApp açılacak; hazır mesajı göndermeniz
+        üyeliğinizi tamamlar. Telefon numaranız ancak o mesajı gönderdiğinizde kaydedilir.</p>
 
       <div class="err" id="err" hidden>Zorunlu üç kutunun da işaretlenmesi gerekiyor.</div>
 
@@ -71,8 +71,8 @@
         <span><b>İsteğe bağlı:</b> Kampanya, indirim ve yeniliklerden WhatsApp üzerinden haberdar olmak
           istiyorum (ticari elektronik ileti izni). İstediğim zaman <b>DUR</b> yazarak vazgeçebilirim.</span></label>
 
-      <button class="btn btn-primary" id="ok" type="submit">Onaylıyorum, üyeliğimi başlat</button>
-      <button class="btn btn-ghost" id="no" type="button">Vazgeç ve numaramı sil</button>
+      <button class="btn btn-primary" id="ok" type="submit">Onaylıyorum, WhatsApp'ta devam et</button>
+      <button class="btn btn-ghost" id="no" type="button">Vazgeç</button>
       <p class="small muted" style="margin-top:.8rem">Sürüm 1.3 · Onayınız tarih, saat ve IP adresiyle
         birlikte kaydedilir.</p>
     </form>
@@ -84,13 +84,27 @@
 (function () {
   var P = window.PECKO, S = P.load();
   var form = document.getElementById('form'), yok = document.getElementById('yok');
+  var q = new URLSearchParams(location.search);
+  if (q.get('nokta')) { S.token = q.get('nokta').toUpperCase().slice(0, 20); P.save(S); }
 
-  // Onay bağlantısı tek kullanımlıktır: aktif veya silinmiş üyelikte sayfa açılmaz.
-  if (S.status !== 'pending') { yok.hidden = false; return; }
+  // İki giriş kapısı var:
+  //  · NFC/QR ile gelen: henüz üyelik yok. Onay burada alınır, numara ancak
+  //    WhatsApp mesajı gönderilince kaydedilir — kimlik böyle kanıtlanır.
+  //  · Sohbetteki onay bağlantısıyla gelen (eski akış): üyelik "pending".
+  var yeniKatilim = S.status === 'none' || S.status === 'deleted';
+  if (!yeniKatilim && S.status !== 'pending') { yok.hidden = false; return; }
 
   form.hidden = false;
-  document.getElementById('code').textContent = S.code;
-  document.getElementById('path').textContent = '/sadakat/onay/' + S.code.toLowerCase().replace(/-/g, '');
+  if (yeniKatilim) {
+    document.getElementById('path').textContent = '/sadakat/n/' + (S.token || 'KASA1').toLowerCase();
+  } else {
+    document.getElementById('baslik').textContent = 'Üyeliğinizi başlatın';
+    document.getElementById('giris').innerHTML = 'Üyelik kodunuz <b>' + S.code + '</b>. Aşağıdaki onayları ' +
+      'verdiğinizde kodunuz aktif olur ve kasada kullanmaya başlayabilirsiniz.';
+    document.getElementById('ok').textContent = 'Onaylıyorum, üyeliğimi başlat';
+    document.getElementById('no').textContent = 'Vazgeç ve numaramı sil';
+    document.getElementById('path').textContent = '/sadakat/onay/' + S.code.toLowerCase().replace(/-/g, '');
+  }
 
   form.addEventListener('submit', function (e) {
     e.preventDefault();
@@ -99,8 +113,21 @@
     if (!ok) { document.getElementById('err').scrollIntoView({ block: 'center' }); return; }
 
     var ig = document.getElementById('ig').value.trim().replace(/^@/, '').toLowerCase();
-    S.ig = /^[a-z0-9._]{2,30}$/.test(ig) ? ig : null;
-    S.marketing = document.getElementById('pazarlama').checked;
+    var igOk = /^[a-z0-9._]{2,30}$/.test(ig) ? ig : null;
+    var pazarlama = document.getElementById('pazarlama').checked;
+
+    if (yeniKatilim) {
+      // Onay kaydedildi, numara henüz yok: sohbette mesaj gönderilince üyelik
+      // tek adımda açılacak. Gerçek sistemde bu, hazır mesaja eklenen tek
+      // kullanımlık anahtarla yapılıyor.
+      S.onOnay = { marketing: pazarlama, ig: igOk, ts: P.today() + ' ' + P.now(), surum: P.LEGAL_VERSION };
+      P.save(S);
+      location.href = '../sohbet/?nokta=' + encodeURIComponent(S.token || 'KASA1');
+      return;
+    }
+
+    S.ig = igOk;
+    S.marketing = pazarlama;
     S.status = 'active';
     S.activatedAt = P.today() + ' ' + P.now();
     S.justActivated = true;
@@ -109,6 +136,7 @@
   });
 
   document.getElementById('no').addEventListener('click', function () {
+    if (yeniKatilim) { location.href = '../'; return; }
     S.status = 'deleted'; S.justDeclined = true; P.save(S);
     location.href = '../sohbet/';
   });

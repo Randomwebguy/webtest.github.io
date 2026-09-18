@@ -136,10 +136,28 @@
 
     if (S.status === 'none' || S.status === 'deleted') {
       say('out', text);
-      // Numaraya kod atanır ama onay verilene kadar aktif olmaz.
-      S.code = P.newCode(); S.status = 'pending'; S.cuzdan = null; S.alisverisler = null;
+      S.code = P.newCode(); S.cuzdan = null; S.alisverisler = null;
       S.marketing = false; S.ig = null; S.events = []; S.pending = null;
       S.createdAt = P.today() + ' ' + P.now(); S.activatedAt = null;
+
+      // Katılım şartları sayfasında onay verilmişse üyelik burada açılır:
+      // onay zaten var, numara bu mesajla geldi. Ayrıca onay bağlantısı
+      // gönderilmez, müşteri ikinci bir adıma gitmez.
+      if (S.onOnay) {
+        S.marketing = !!S.onOnay.marketing;
+        S.ig = S.onOnay.ig || null;
+        S.status = 'active';
+        S.activatedAt = P.today() + ' ' + P.now();
+        P.push(S, 'sys', 'Katılım şartları onaylandı · sürüm ' + (S.onOnay.surum || P.LEGAL_VERSION) + ' · ' + S.onOnay.ts);
+        S.onOnay = null;
+        P.save(S); drawChips();
+        draw(S.log[S.log.length - 1]); scroll();
+        reply(P.MSG.activated(S), null, 900);
+        return;
+      }
+
+      // Onay verilmeden yazıldıysa (eski akış): kod atanır, aktif olmaz.
+      S.status = 'pending';
       P.save(S); drawChips();
       reply(P.MSG.welcome(S), 'onay', 1100);
       return;
@@ -347,7 +365,7 @@
 
   /* --- açılış --- */
   if (!S.log.length) {
-    P.push(S, 'sys', 'Kasadaki QR okutuldu · nokta: ' + S.token);
+    P.push(S, 'sys', 'Kasadaki etikete dokunuldu · nokta: ' + S.token);
     P.push(S, 'sys', 'Hazır mesaj yazı kutusunda bekliyor. WhatsApp mesajı kendiliğinden göndermez — yeşil düğmeye basın.');
     P.save(S);
   }

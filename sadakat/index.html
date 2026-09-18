@@ -29,12 +29,12 @@ body{background:var(--marka-lacivert);display:grid;place-items:center;padding:20
   <div class="logo-plaka"><span class="marka-yazi-logo buyuk">Peçko Fırın</span></div>
   <div class="icerik">
     <h1>Sadakat programı</h1>
-    <p>Sohbet açılıyor…</p>
+    <p>Katılım şartları açılıyor…</p>
     <div class="spin" aria-hidden="true"></div>
-    <div class="quote" id="quote">Merhaba! Sadakat programına katılmak istiyorum. #KASA1</div>
-    <a class="btn btn-primary" id="go" href="sohbet/">Sohbeti aç</a>
-    <p class="tiny">Gerçek kurulumda bu adım telefonun WhatsApp uygulamasını hazır mesajla açar.
-      Bu bir akış provasıdır, gerçek mesaj gönderilmez.</p>
+    <div class="quote" id="quote">Önce katılım şartlarını onaylayacaksınız; ardından WhatsApp açılacak.</div>
+    <a class="btn btn-primary" id="go" href="onay/">Katılım şartlarını aç</a>
+    <p class="tiny">Gerçek kurulumda NFC etiketi bu sayfayı açar. Onaylar verildikten sonra WhatsApp
+      hazır mesajla açılır. Bu bir akış provasıdır, gerçek mesaj gönderilmez.</p>
   </div>
 </main>
 <script src="ortak.js"></script>
@@ -48,8 +48,9 @@ body{background:var(--marka-lacivert);display:grid;place-items:center;padding:20
   // QR'ı hangi noktadan okuttuğu akış boyunca taşınır (kasa, masa 3, …).
   s.token = token;
   P.save(s);
-  document.getElementById('quote').textContent = P.PREFILL(token);
-  var url = 'sohbet/?nokta=' + encodeURIComponent(token);
+  // Etiket doğrudan WhatsApp'a değil katılım şartlarına giriyor: onay önce
+  // alınıyor, numara ancak mesaj gönderildiğinde kaydediliyor.
+  var url = 'onay/?nokta=' + encodeURIComponent(token);
   document.getElementById('go').setAttribute('href', url);
   setTimeout(function () { location.replace(url); }, 1300);
 })();
