@@ -27,6 +27,15 @@
         <a href="../onay/?yeni=1">Yeni üyelik</a>
       </div>
       <div class="uyari hata" id="giris-hata" role="alert" hidden></div>
+
+      <!-- Eski provadan kalan üyelikte şifre yok: giriş ekranı kapalı bir kapı
+           olmasın, kişiyi yeni kayda yönlendirsin. -->
+      <div id="sifresiz" hidden>
+        <div class="uyari bilgi">Bu cihazdaki üyelik, uygulamanın önceki sürümünden kalmış:
+          şifresi yok, bu yüzden giriş yapılamıyor.</div>
+        <a class="dugme birincil" href="../onay/?yeni=1">Yeni üyelik başlat</a>
+      </div>
+
       <form id="giris-form">
         <label class="alan">
           <span>Telefon numaranız</span>

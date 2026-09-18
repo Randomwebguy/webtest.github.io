@@ -227,6 +227,11 @@
     Object.keys(SEKME).forEach(function (k) { $(SEKME[k][0]).hidden = true; });
     $('baslik').textContent = 'Giriş yapın';
     $('path').textContent = '/uye/giris';
+    // Önceki sürümde açılmış üyelikte şifre yok; boş formu göstermek kapalı bir
+    // kapıdan başka bir şey olmaz.
+    var sifresiz = S.status === 'active' && !S.sifre;
+    $('sifresiz').hidden = !sifresiz;
+    $('giris-form').hidden = sifresiz;
   }
 
   $('giris-form').addEventListener('submit', function (e) {
