@@ -427,7 +427,13 @@
     // "eklenmedi" demek haksızlık gibi okunur.
     purchase: function (o) {
       var tur = o.tur;
-      var neden = o.sayildi
+      // Tur bu alışverişle dolduysa sayaç sıfırlanmıştır; "0/10 · 10 alışveriş
+      // sonra hediye bakiye" yazıp hemen ardından "tebrikler, turu doldurdunuz"
+      // demek müşteriyi şaşırtır. Dolan turu burada kapatıyoruz, ödülü sonraki
+      // mesaj anlatıyor.
+      var neden = o.turDoldu
+        ? '\n\n🛍️ Alışveriş: *' + tur.uzunluk + '/' + tur.uzunluk + '* · turunuz doldu 🎉'
+        : o.sayildi
         ? '\n\n🛍️ Alışveriş: *' + tur.alisveris + '/' + tur.uzunluk + '*' +
           (tur.kalan ? ' · ' + tur.kalan + ' alışveriş sonra hediye bakiye' : '')
         : o.gunSayildi
@@ -439,7 +445,7 @@
       return '✅ Alışverişiniz kaydedildi: *' + P.tlk(o.brutKurus) + '*' +
         (o.bakiyeKurus ? '\nHediye bakiyeden düşülen: *' + P.tlk(o.bakiyeKurus) + '* · ödediğiniz: ' + P.tlk(o.netKurus) : '') +
         neden +
-        '\n\nKalan hediye bakiyeniz: ' + P.tlk(o.bakiye);
+        (o.turDoldu ? '' : '\n\nKalan hediye bakiyeniz: ' + P.tlk(o.bakiye));
     },
 
     // Bakiyenin süresi dolmadan hatırlatma.
@@ -543,7 +549,9 @@
     receiptApproved: function (o) {
       var tur = o.tur;
       return 'Fişiniz onaylandı! 🧾 *' + P.tl(o.tutar) + '* alışveriş hesabınıza işlendi.' +
-        (o.sayildi
+        (o.turDoldu
+          ? '\n\n🛍️ Alışveriş: *' + tur.uzunluk + '/' + tur.uzunluk + '* · turunuz doldu 🎉'
+          : o.sayildi
           ? '\n\n🛍️ Alışveriş: *' + tur.alisveris + '/' + tur.uzunluk + '*' +
             (tur.kalan ? ' · ' + tur.kalan + ' alışveriş sonra hediye bakiye' : '')
           : o.gunSayildi

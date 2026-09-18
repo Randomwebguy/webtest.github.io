@@ -184,7 +184,7 @@
 
     toChat(P.MSG.purchase({ brutKurus: brut, bakiyeKurus: kullan, netKurus: brut - kullan,
       sayildi: r.sayildi, gunSayildi: r.alisveris.sayildi, tur: r.tur,
-      bakiye: P.aktifBakiye(S) }), 'Kasa: alışveriş işlendi');
+      turDoldu: !!r.parti, bakiye: P.aktifBakiye(S) }), 'Kasa: alışveriş işlendi');
 
     // Tur kapandıysa ödül bildirimi ayrı mesaj olarak gider: müşteri bunu
     // ekran görüntüsü alıp saklayabilsin.
