@@ -23,10 +23,18 @@
 
     <form id="form" hidden>
       <h1 id="baslik">Katılım şartları</h1>
-      <p id="giris">Aşağıdaki onayları verdiğinizde WhatsApp açılacak; hazır mesajı göndermeniz
-        üyeliğinizi tamamlar. Telefon numaranız ancak o mesajı gönderdiğinizde kaydedilir.</p>
+      <p id="giris">Numaranızı, bir şifre belirleyip onayları verdiğinizde WhatsApp açılacak;
+        hazır mesajı göndermeniz üyeliğinizi tamamlar. Numaranız ancak o mesajla doğrulanır —
+        formdaki numara tek başına yeterli değildir.</p>
 
       <div class="err" id="err" hidden>Zorunlu üç kutunun da işaretlenmesi gerekiyor.</div>
+
+      <label class="txt" id="kutu-tel"><b>Telefon numaranız</b> — üyeliğiniz bu numaraya bağlanır.
+        <input type="tel" id="tel" inputmode="tel" autocomplete="tel" placeholder="0532 123 45 67"
+          maxlength="20"></label>
+      <label class="txt" id="kutu-sifre"><b>Şifre belirleyin</b> — uygulamaya bu şifreyle girersiniz;
+        girişiniz siz çıkana kadar açık kalır.
+        <input type="password" id="sifre" autocomplete="new-password"></label>
 
       <details class="legal">
         <summary>Aydınlatma Metni ve Açık Rıza Beyanı (sürüm 1.3)</summary>
@@ -110,11 +118,33 @@
     document.getElementById('path').textContent = '/sadakat/onay/' + S.code.toLowerCase().replace(/-/g, '');
   }
 
+  // Eski akışta (sohbetten gelen onay bağlantısı) numara zaten biliniyor:
+  // o ekranda numara/şifre sorulmaz.
+  if (!yeniKatilim) {
+    document.getElementById('kutu-tel').hidden = true;
+    document.getElementById('kutu-sifre').hidden = true;
+  }
+
   form.addEventListener('submit', function (e) {
     e.preventDefault();
+    var err = document.getElementById('err');
+    function dur(mesaj) {
+      err.textContent = mesaj;
+      err.hidden = false;
+      err.scrollIntoView({ block: 'center' });
+    }
+
+    var tel = null;
+    if (yeniKatilim) {
+      tel = P.telTemiz(document.getElementById('tel').value);
+      if (!tel) return dur('Telefon numarası geçersiz. Örnek: 0532 123 45 67');
+      var sifreSorun = P.sifreSorunu(document.getElementById('sifre').value);
+      if (sifreSorun) return dur(sifreSorun);
+    }
+
     var ok = ['okudum', 'riza', 'yas'].every(function (id) { return document.getElementById(id).checked; });
-    document.getElementById('err').hidden = ok;
-    if (!ok) { document.getElementById('err').scrollIntoView({ block: 'center' }); return; }
+    if (!ok) return dur('Zorunlu üç kutunun da işaretlenmesi gerekiyor.');
+    err.hidden = true;
 
     var ig = document.getElementById('ig').value.trim().replace(/^@/, '').toLowerCase();
     var igOk = /^[a-z0-9._]{2,30}$/.test(ig) ? ig : null;
@@ -124,7 +154,8 @@
       // Onay kaydedildi, numara henüz yok: sohbette mesaj gönderilince üyelik
       // tek adımda açılacak. Gerçek sistemde bu, hazır mesaja eklenen tek
       // kullanımlık anahtarla yapılıyor.
-      S.onOnay = { marketing: pazarlama, ig: igOk, ts: P.today() + ' ' + P.now(), surum: P.LEGAL_VERSION };
+      S.onOnay = { marketing: pazarlama, ig: igOk, ts: P.today() + ' ' + P.now(), surum: P.LEGAL_VERSION,
+        phone: tel, sifre: P.sifreOzet(document.getElementById('sifre').value) };
       P.save(S);
       location.href = '../sohbet/?nokta=' + encodeURIComponent(S.token || 'KASA1');
       return;

@@ -275,6 +275,61 @@
     return parti;
   };
 
+  /* --- üye uygulaması (2. sürüm) ------------------------------------------
+     Kayıt numara + şifre + onaylarla yapılıyor, giriş kişi çıkana kadar açık
+     kalıyor. Provada sunucu yok; "oturum" da localStorage'ta duruyor. */
+
+  // 0532…, +90 532…, 90532… hepsi 905321234567'ye iner. Geçersizse null.
+  P.telTemiz = function (ham) {
+    var d = String(ham || '').replace(/\D/g, '');
+    if (d.length === 10 && d[0] === '5') d = '90' + d;
+    else if (d.length === 11 && d.slice(0, 2) === '05') d = '9' + d;
+    else if (d.length === 12 && d.slice(0, 2) === '90') { /* hazır */ }
+    else return null;
+    return /^905\d{9}$/.test(d) ? d : null;
+  };
+
+  P.telMaske = function (d) {
+    return String(d || '').replace(/^(\d{2})(\d{3})\d{3}(\d{2})(\d{2})$/, '+$1 $2 *** ** $4');
+  };
+
+  // Provanın şifreyi düz metin saklamaması için küçük bir özet (FNV-1a).
+  // Gerçek sistemde şifre sunucuda scrypt ile özetlenir; buradaki yalnızca
+  // "aynı şifre mi" sorusunu tarayıcıda cevaplamak için var.
+  P.sifreOzet = function (sifre) {
+    var h = 0x811c9dc5, i;
+    for (i = 0; i < String(sifre).length; i++) {
+      h ^= String(sifre).charCodeAt(i);
+      h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
+    }
+    return 'p1$' + h.toString(16);
+  };
+
+  P.sifreSorunu = function (sifre) {
+    var s = String(sifre || '');
+    if (s.length < 8) return 'Şifre en az 8 karakter olmalı.';
+    if (/^\d+$/.test(s)) return 'Şifre yalnızca rakamlardan oluşmasın.';
+    return null;
+  };
+
+  // Açık oturumlar listesinin tek işi tanınmayan oturumu fark ettirmek;
+  // "Başka bir cihaz" yazan satırlar bunu yapmaz.
+  P.cihazAdi = function (ua) {
+    var u = String(ua == null ? (w.navigator && w.navigator.userAgent) || '' : ua);
+    if (!u) return 'Bilinmeyen cihaz';
+    var platformlar = [[/iPhone/i, 'iPhone'], [/iPad/i, 'iPad'], [/Android/i, 'Android'],
+      [/Macintosh|Mac OS X/i, 'Mac'], [/Windows/i, 'Windows'], [/Linux/i, 'Linux']];
+    var tarayicilar = [[/SamsungBrowser/i, 'Samsung Internet'], [/Edg\//i, 'Edge'],
+      [/OPR\/|Opera/i, 'Opera'], [/Firefox|FxiOS/i, 'Firefox'], [/CriOS|Chrome/i, 'Chrome'],
+      [/Safari/i, 'Safari']];
+    function bul(liste) {
+      for (var i = 0; i < liste.length; i++) if (liste[i][0].test(u)) return liste[i][1];
+      return null;
+    }
+    var ad = [bul(platformlar), bul(tarayicilar)].filter(Boolean).join(' · ');
+    return ad || 'Bilinmeyen cihaz';
+  };
+
   P.LEGAL_VERSION = '1.4';
   P.KVKK_URL = 'https://peckofirin.com.tr/sadakat/kvkk';
   P.PREFILL = function (token) { return 'Merhaba! Sadakat programına katılmak istiyorum. #' + token; };
@@ -315,6 +370,8 @@
       // Hediye bakiye cüzdanı ve günlük alışveriş kayıtları.
       cuzdan: null, alisverisler: null,
       marketing: false, ig: null, log: [], events: [], pending: null,
+      // 2. sürüm: numara + şifreyle kalıcı oturum.
+      phone: null, sifre: null, oturum: true,
       createdAt: null, activatedAt: null,
       rewards: null, staff: null, shift: null, audit: null, claims: null,
       campaigns: null, cards: null, iys: null, ornek: null,

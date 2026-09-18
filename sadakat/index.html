@@ -48,7 +48,7 @@ body{background:var(--marka-lacivert);display:grid;place-items:center;padding:20
     <p>Kasada aşağıdaki kodu söylemeniz yeterli.</p>
     <div class="kod-kutu"><span class="tiny">Üyelik kodunuz</span><b id="kod">—</b></div>
     <p id="ozet" class="quote"></p>
-    <a class="btn btn-primary" href="puan/">Bakiyem ve alışverişlerim</a>
+    <a class="btn btn-primary" href="puan/">Uygulamayı aç</a>
     <a class="btn btn-sec" href="sohbet/">WhatsApp'tan yaz</a>
     <p class="tiny">Bu telefonla başka biri üye olacaksa <a href="onay/?yeni=1">yeni üyelik başlatın</a>.</p>
   </div>
@@ -68,7 +68,10 @@ body{background:var(--marka-lacivert);display:grid;place-items:center;padding:20
   // onayladığı şeyi tekrar onaylatmak yanlış olur. Gerçek sistemde bu tanıma
   // tarayıcıya bırakılan rastgele anahtarla yapılıyor; provada cihazın kendi
   // kaydı zaten burada.
+  // Kayıtlı üye ikinci kez dokunduğunda onay metni yeniden gösterilmez ve
+  // ara ekranda oyalanmaz: girişi zaten açık olan uygulamasına düşer.
   if (s.status === 'active' && s.code) {
+    if (s.oturum !== false) { location.replace('puan/'); return; }
     document.getElementById('yeni').hidden = true;
     document.getElementById('uye').hidden = false;
     document.getElementById('kod').textContent = s.code;

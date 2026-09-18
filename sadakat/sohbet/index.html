@@ -70,7 +70,7 @@
       (entry.x ? (entry.im ? '<span class="cap">' + P.fmt(entry.x) + '</span>' : P.fmt(entry.x)) : '') +
       '<span class="t">' + entry.t + (entry.d === 'out' ? ' ✓✓' : '') + '</span>';
     if (entry.b === 'onay') d.insertAdjacentHTML('beforeend', '<a class="cta" href="../onay/">Onay sayfasını aç</a>');
-    if (entry.b === 'puan') d.insertAdjacentHTML('beforeend', '<a class="cta" href="../puan/">Bakiyem ve alışverişlerim</a>');
+    if (entry.b === 'puan') d.insertAdjacentHTML('beforeend', '<a class="cta" href="../puan/">Uygulamayı aç</a>');
     thread.appendChild(d);
   }
 
@@ -146,6 +146,10 @@
       if (S.onOnay) {
         S.marketing = !!S.onOnay.marketing;
         S.ig = S.onOnay.ig || null;
+        // Numara bu mesajla doğrulandı; şifre onay sayfasında belirlenmişti.
+        S.phone = S.onOnay.phone || null;
+        S.sifre = S.onOnay.sifre || null;
+        S.oturum = true;
         S.status = 'active';
         S.activatedAt = P.today() + ' ' + P.now();
         P.push(S, 'sys', 'Katılım şartları onaylandı · sürüm ' + (S.onOnay.surum || P.LEGAL_VERSION) + ' · ' + S.onOnay.ts);

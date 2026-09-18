@@ -4,116 +4,178 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
-<meta name="theme-color" content="#2B2422">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8E%82%3C/text%3E%3C/svg%3E">
-<title>Bakiyem · Peçko Fırın</title>
-<link rel="stylesheet" href="../marka.css">
-<link rel="stylesheet" href="../ortak.css">
+<meta name="theme-color" content="#0D1519" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#F2EFEB" media="(prefers-color-scheme: light)">
+<link rel="icon" href="../simge.svg" type="image/svg+xml">
+<title>Üyeliğim · Peçko Fırın</title>
+<link rel="stylesheet" href="../uygulama.css">
 </head>
 <body>
-<div class="app">
-  <header class="urlbar">🔒 <b>peckofirin.com.tr</b><span id="path">/sadakat/uye/…</span><a href="../sohbet/">Kapat</a></header>
-  <div class="body"><div class="pad" id="pad">
-    <div id="yok" hidden>
-      <h1>Bağlantı geçerli değil</h1>
-      <p>Bu sayfanın bağlantısı 7 gün geçerlidir. WhatsApp'a <b>BAKIYE</b> yazarak yenisini alabilirsiniz.</p>
-      <a class="btn btn-sec" href="../sohbet/">Sohbete dön</a>
-    </div>
-    <div id="var" hidden>
-      <div class="codebox">
-        <small>Üyelik kodunuz</small>
-        <div class="c" id="code">—</div>
-        <small>Kasada bu kodu söylemeniz yeterli</small>
+<header class="urlbar">🔒 <b>peckofirin.com.tr</b><span id="path">/uye</span><a href="../sohbet/">Kapat</a></header>
+
+<div class="uygulama sekmeli">
+  <header class="ust">
+    <p class="marka"><b>Peçko</b> Fırın</p>
+    <h1 id="baslik">Kartım</h1>
+  </header>
+  <main>
+
+    <!-- Oturum yoksa: giriş ekranı. -->
+    <section id="giris" hidden>
+      <div class="secim">
+        <a class="acik" href="#" id="giris-sekme">Giriş</a>
+        <a href="../onay/?yeni=1">Yeni üyelik</a>
+      </div>
+      <div class="uyari hata" id="giris-hata" role="alert" hidden></div>
+      <form id="giris-form">
+        <label class="alan">
+          <span>Telefon numaranız</span>
+          <input type="tel" name="telefon" inputmode="tel" autocomplete="tel" placeholder="0532 123 45 67" maxlength="20">
+        </label>
+        <label class="alan">
+          <span>Şifreniz</span>
+          <input type="password" name="sifre" autocomplete="current-password">
+        </label>
+        <button class="dugme birincil" type="submit">Giriş yap</button>
+      </form>
+      <p class="dipnot merkez">Girişiniz, siz çıkana kadar açık kalır.</p>
+    </section>
+
+    <!-- Kartım -->
+    <section id="s-kart" hidden>
+      <div class="kutu kod-kart">
+        <p class="etiket">Üyelik kodunuz</p>
+        <p class="kod" id="kod">—</p>
+        <p class="ipucu">Kasada bu kodu söyleyin</p>
+        <hr class="ayrac">
+        <div class="tur" id="tur-noktalar" role="img" aria-label="tur ilerlemesi"></div>
+        <div class="satir">
+          <span class="ad" id="tur-sayi">—</span>
+          <span class="deger" id="tur-kalan">—</span>
+        </div>
       </div>
 
-      <h2 style="margin-top:0">Hediye bakiyeniz</h2>
-      <div id="bakiye"></div>
+      <section class="bolum">
+        <h2>Hediye bakiyeniz</h2>
+        <div class="grup">
+          <div class="bakiye">
+            <p class="tutar-buyuk" id="bakiye">—</p>
+            <p class="mini" id="bakiye-skt" hidden></p>
+            <p class="mini" id="bakiye-bekleyen" hidden></p>
+          </div>
+          <a class="satir-bag" href="#gecmis" data-git="gecmis"><span>Tüm hareketler</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9.5 5.5 6.5 6.5-6.5 6.5"/></svg></a>
+        </div>
+        <p class="dipnot" id="tavan-not">—</p>
+      </section>
 
-      <h2>Alışveriş turunuz</h2>
-      <p class="small muted" id="tur-ozet">—</p>
-      <div class="stamps" id="grid"></div>
-      <p class="small muted" id="tur-not"></p>
+      <section class="bolum">
+        <h2>Nasıl kazanılır</h2>
+        <ol class="adimlar grup" id="adimlar"></ol>
+      </section>
+    </section>
 
-      <h2>Alışverişlerim</h2>
-      <div id="alisverisler"></div>
+    <!-- Geçmiş -->
+    <section id="s-gecmis" hidden>
+      <section class="bolum">
+        <h2>Alışverişlerim</h2>
+        <div id="alisverisler"></div>
+      </section>
+      <section class="bolum">
+        <h2>Bakiye hareketleri</h2>
+        <div id="partiler"></div>
+      </section>
+    </section>
 
-      <h2>Instagram bonusu</h2>
-      <p class="small" id="igline">—</p>
+    <!-- Fiş -->
+    <section id="s-fis" hidden>
+      <p class="aciklama">Fişin tamamı görünsün, düz ve net çekin. Aynı gün içindeki fişleriniz
+        tek alışveriş sayılır ve tutarları toplanır.</p>
+      <div class="uyari" id="fis-durum" hidden></div>
+      <label class="dosya" id="fis-sec">
+        <input type="file" accept="image/*" id="fis-girdi">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8.4h3.4L9 6h6l1.6 2.4H20v10H4z"/><circle cx="12" cy="13" r="3.4"/></svg>
+        <span class="sol">
+          <span class="baslik" id="fis-ad">Fişin fotoğrafını seçin</span>
+          <span class="alt">Kamerayla çekin ya da galeriden seçin</span>
+        </span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9.5 5.5 6.5 6.5-6.5 6.5"/></svg>
+      </label>
+      <button class="dugme birincil" id="fis-gonder" type="button">Gönder</button>
+      <p class="dipnot">Bu bir provadır: seçtiğiniz fotoğraf yüklenmez, gerçek sistemdeki okuma ve
+        denetim adımları örnek bir fiş üzerinden canlandırılır.</p>
 
-      <div class="note">Bu sayfa yalnızca görüntülemek içindir; alışveriş ve bakiye işlemleri kasada yapılır.
-        Bağlantı 7 gün geçerlidir, sonra WhatsApp'a <b>BAKIYE</b> yazıp yenisini alırsınız.</div>
-      <a class="btn btn-sec" href="../sohbet/">Sohbete dön</a>
-    </div>
-  </div></div>
+      <section class="bolum" style="margin-top:22px">
+        <h2>Gönderdiklerim</h2>
+        <div id="fisler"></div>
+      </section>
+    </section>
+
+    <!-- Hesap -->
+    <section id="s-hesap" hidden>
+      <div class="bolum">
+        <div class="grup">
+          <div class="satir"><span class="ad">Üyelik kodu</span><span class="deger" id="h-kod">—</span></div>
+          <div class="satir"><span class="ad">Telefon</span><span class="deger" id="h-tel">—</span></div>
+          <div class="satir"><span class="ad">Üyelik başlangıcı</span><span class="deger" id="h-tarih">—</span></div>
+        </div>
+      </div>
+
+      <div class="bolum">
+        <h2>Kampanya mesajları</h2>
+        <div class="grup">
+          <label class="anahtar-satir">
+            <span>Kampanya, indirim ve yeniliklerden WhatsApp'tan haberdar olmak istiyorum.</span>
+            <input class="anahtar" type="checkbox" id="izin">
+          </label>
+        </div>
+        <p class="dipnot">Tur tamamlandı ve bakiye bildirimleri bu izne bağlı değildir; üyeliğin
+          işleyişi gereği gönderilir.</p>
+      </div>
+
+      <div class="bolum">
+        <h2>Açık oturumlar</h2>
+        <div class="grup">
+          <div class="satir">
+            <span class="sol">
+              <span class="baslik" id="cihaz">Bu cihaz</span>
+              <span class="alt" id="cihaz-zaman">—</span>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="bolum">
+        <h2>Verileriniz</h2>
+        <div class="grup">
+          <a class="satir-bag" href="../onay/?oku=1"><span>Aydınlatma Metni</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9.5 5.5 6.5 6.5-6.5 6.5"/></svg></a>
+          <a class="satir-bag" href="../sohbet/"><span>WhatsApp'tan yaz</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9.5 5.5 6.5 6.5-6.5 6.5"/></svg></a>
+        </div>
+        <p class="dipnot">Verilerinizin tamamını görmek veya üyeliğinizi silmek için WhatsApp'tan
+          <strong>VERILERIM</strong> ya da <strong>SIL</strong> yazın. Silme işlemi geri alınamadığı için
+          numaranızdan onay isteriz.</p>
+      </div>
+
+      <div class="bolum">
+        <div class="grup">
+          <button class="satir-eylem tehlike" type="button" id="cikis">Çıkış yap</button>
+        </div>
+      </div>
+    </section>
+
+  </main>
 </div>
 
+<nav class="sekmeler" id="sekmeler" aria-label="Uygulama bölümleri" hidden>
+  <a href="#kart" data-git="kart" class="acik" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5A2.5 2.5 0 0 1 5.5 6h13A2.5 2.5 0 0 1 21 8.5v7a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 15.5z"/><path d="M3 10.5h18"/><path d="M6.5 14.5h3"/></svg><span>Kartım</span></a>
+  <a href="#gecmis" data-git="gecmis"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 7v5l3.2 1.9"/><circle cx="12" cy="12" r="8.2"/></svg><span>Geçmiş</span></a>
+  <a href="#fis" data-git="fis"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.8h12v16.4l-2.4-1.5-2.4 1.5-2.4-1.5-2.4 1.5L6 18.7z"/><path d="M9.4 8.6h5.2"/><path d="M9.4 12.4h5.2"/></svg><span>Fiş</span></a>
+  <a href="#hesap" data-git="hesap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 11.6a3.8 3.8 0 1 0 0-7.6 3.8 3.8 0 0 0 0 7.6z"/><path d="M4.8 20c.6-3.6 3.6-5.6 7.2-5.6s6.6 2 7.2 5.6"/></svg><span>Hesap</span></a>
+</nav>
+
 <script src="../ortak.js"></script>
-<script>
-(function () {
-  var P = window.PECKO, S = P.load();
-  if (S.status !== 'active') { document.getElementById('yok').hidden = false; return; }
-  document.getElementById('var').hidden = false;
-  document.getElementById('code').textContent = S.code;
-  document.getElementById('path').textContent = '/sadakat/uye/' + S.code.toLowerCase().replace(/-/g, '');
-
-  var tur = P.turDurumu(S), bakiye = P.aktifBakiye(S), ilk = P.ilkSonKullanma(S);
-  var c = P.CUZDAN;
-
-  /* --- bakiye kartı: para, son kullanma ve ne kadarını nerede kullanabileceği --- */
-  document.getElementById('bakiye').innerHTML = bakiye
-    ? '<div class="seviye">' +
-        '<div class="sv-ust"><b>' + P.tlk(bakiye) + '</b>' +
-          '<span class="cost">son kullanma ' + (ilk ? P.gunAdi(P.gunKodu(ilk.sonKullanmaTs)) : '—') + '</span></div>' +
-        '<p class="small muted" style="margin:.5rem 0 0">Bakiyeniz, yapacağınız alışverişin en fazla <b>%' +
-          Math.round(c.tavanOrani * 100) + "</b>'ini karşılar. Örneğin " + P.tlk(bakiye) +
-          ' bakiyenin tamamını kullanmak için en az <b>' + P.tlk(Math.ceil(bakiye / c.tavanOrani)) +
-          '</b> tutarında alışveriş yapmanız gerekir.</p>' +
-        '<p class="small muted" style="margin:.35rem 0 0">Nakde çevrilmez, başka kampanyalarla birleştirilmez.</p>' +
-      '</div>' +
-      (S.cuzdan && S.cuzdan.partiler.filter(function (x) { return x.kalan > 0; }).length > 1
-        ? '<p class="small muted">Bakiyeniz farklı tarihlerde kazanıldı; harcarken önce son kullanma tarihi en yakın olan kullanılır.</p>'
-        : '')
-    : '<p class="small muted">Henüz hediye bakiyeniz yok. <b>' + c.turUzunlugu +
-      ' alışverişinizi tamamladığınızda</b>, bu alışverişlerde ödediğiniz toplam tutarın <b>%' +
-      Math.round(c.oran * 100) + "</b>'i kadar Peçko hediye bakiyesi kazanırsınız.</p>";
-
-  /* --- tur sayacı --- */
-  document.getElementById('tur-ozet').innerHTML =
-    '<b>' + tur.alisveris + '/' + tur.uzunluk + '</b> alışveriş' +
-    (tur.alisveris ? ' · bu turda <b>' + P.tlk(tur.netKurus) + '</b> harcadınız' : '') +
-    ' · tur ' + tur.no;
-  var grid = document.getElementById('grid');
-  for (var i = 0; i < tur.uzunluk; i++) {
-    var el = document.createElement('i');
-    if (i < tur.alisveris) { el.className = 'on'; el.textContent = '🛍️'; }
-    grid.appendChild(el);
-  }
-  document.getElementById('tur-not').innerHTML = tur.alisveris
-    ? tur.kalan + ' alışveriş sonra, şu anki harcamanızla <b>' + P.tlk(tur.tahminiBakiyeKurus) +
-      '</b> hediye bakiye kazanırsınız. Harcadıkça bu tutar artar.'
-    : 'İlk alışverişinizi yaptığınızda burada ilerlemeniz görünecek.';
-
-  /* --- alışveriş günleri: aynı gün fişleri tek satırda --- */
-  var gunler = (S.alisverisler || []).slice(0, 10);
-  document.getElementById('alisverisler').innerHTML = gunler.length
-    ? gunler.map(function (a) {
-        return '<div class="rw"><span>' + P.gunAdi(a.gun) +
-          '<br><small class="muted">' + P.tlk(a.netKurus) + ' net' +
-          (a.bakiyeKurus ? ' · bakiye ' + P.tlk(a.bakiyeKurus) : '') +
-          (a.iadeKurus ? ' · iade ' + P.tlk(a.iadeKurus) : '') +
-          (a.fis > 1 ? ' · ' + a.fis + ' fiş birleşti' : '') + '</small></span>' +
-          '<span class="cost">' + (a.sayildi ? '<span class="tag ok">sayıldı</span>' : '<span class="tag bek">sayılmadı</span>') + '</span></div>';
-      }).join('') +
-      '<p class="small muted">Aynı gün içindeki alışverişleriniz tek alışveriş sayılır ve tutarları toplanır.</p>'
-    : '<p class="small muted">Henüz kayıtlı alışverişiniz yok.</p>';
-
-  document.getElementById('igline').innerHTML = S.ig
-    ? 'Kayıtlı hesabınız: <b>@' + P.esc(S.ig) + '</b>. ' + P.IG.handle +
-      ' hesabımızı etiketlediğiniz hikaye ' + P.tl(P.IG.storyTl) + ', gönderi ' + P.tl(P.IG.postTl) +
-      ' hediye bakiye kazandırır (ayda en fazla ' + P.IG.max + ').'
-    : 'Instagram hesabınız kayıtlı değil. WhatsApp\'a <b>INSTAGRAM @kullaniciadi</b> yazarsanız ' +
-      P.IG.handle + ' etiketli paylaşımlarınız otomatik hediye bakiye kazandırır.';
-})();
-</script>
+<script src="uygulama.js"></script>
 </body>
 </html>
