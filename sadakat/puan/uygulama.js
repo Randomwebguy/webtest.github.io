@@ -197,7 +197,9 @@
       if (etkin) baglar[i].setAttribute('aria-current', 'page');
       else baglar[i].removeAttribute('aria-current');
     }
-    $('path').textContent = ad === 'kart' ? '/uye' : '/uye/' + ad;
+    // Ürün, işletmenin sitesine /sadakat önekiyle bağlanıyor (BASE_URL'den
+    // türetiliyor); adres çubuğu taklidi de onu göstersin.
+    $('path').textContent = ad === 'kart' ? '/sadakat/uye' : '/sadakat/uye/' + ad;
     if (ad === 'kart') kartCiz();
     if (ad === 'gecmis') gecmisCiz();
     if (ad === 'fis') fisCiz();
@@ -226,7 +228,7 @@
     $('sekmeler').hidden = true;
     Object.keys(SEKME).forEach(function (k) { $(SEKME[k][0]).hidden = true; });
     $('baslik').textContent = 'Giriş yapın';
-    $('path').textContent = '/uye/giris';
+    $('path').textContent = '/sadakat/uye/giris';
     // Önceki sürümde açılmış üyelikte şifre yok; boş formu göstermek kapalı bir
     // kapıdan başka bir şey olmaz.
     var sifresiz = S.status === 'active' && !S.sifre;
